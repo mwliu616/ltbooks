@@ -20,10 +20,13 @@ with an internal token stored in `app/.env`.
 ## Documentation
 
 - Product overview and capabilities: [web/files/README.en.md](web/files/README.en.md)
-- Installation and daily use: [web/files/HOWTO.md](web/files/HOWTO.md)
-- Deployment parameters and troubleshooting: [web/files/部署指南-v1.0.0.md](web/files/部署指南-v1.0.0.md)
-- Source layout and data flow: [web/files/开发全路径.md](web/files/开发全路径.md)
-- Release and acceptance notes: [web/files/版本发布说明-v1.0.0.md](web/files/版本发布说明-v1.0.0.md)
+- Installation and daily use: [web/files/HOWTO.en.md](web/files/HOWTO.en.md)
+- Deployment parameters and troubleshooting: [web/files/DEPLOYMENT.en.md](web/files/DEPLOYMENT.en.md)
+- Source layout and data flow: [web/files/DEVELOPMENT.en.md](web/files/DEVELOPMENT.en.md)
+- Release and acceptance notes: [web/files/RELEASE.en.md](web/files/RELEASE.en.md)
+
+Simplified Chinese and Traditional Chinese editions sit next to these files with
+`.zh-CN` and `.zh-HK` suffixes where available.
 
 ## Build and packaging
 

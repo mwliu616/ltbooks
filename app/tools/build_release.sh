@@ -42,17 +42,22 @@ rsync -a \
 cp "$BACKEND/requirements.txt" "$COMMON/requirements.txt"
 cp "$BACKEND/.env.example" "$COMMON/.env.example"
 cp "$BACKEND/LICENSE" "$COMMON/LICENSE"
-cp "$BACKEND/tools/package-readme.md" "$COMMON/README.md"
-# Keep the package manuals in English filenames, sourced from the reviewed
-# documentation set maintained beside the frontend source.
+cp "$BACKEND/tools/package-readme.en.md" "$COMMON/README.md"
+cp "$BACKEND/tools/package-readme.md" "$COMMON/README.zh-CN.md"
+# English is the default documentation language. Chinese and Traditional Chinese
+# editions ship alongside it under language suffixes.
 declare -A DOC_MAP=(
-  ["README.md"]="README.md"
-  ["README.en.md"]="README.en.md"
-  ["HOWTO.md"]="HOWTO.md"
-  ["开发全路径.md"]="DEVELOPMENT.md"
-  ["部署指南-v1.0.0.md"]="DEPLOYMENT.md"
+  ["README.en.md"]="README.md"
+  ["README.md"]="README.zh-CN.md"
+  ["HOWTO.en.md"]="HOWTO.md"
+  ["HOWTO.md"]="HOWTO.zh-CN.md"
+  ["DEVELOPMENT.en.md"]="DEVELOPMENT.md"
+  ["开发全路径.md"]="DEVELOPMENT.zh-CN.md"
+  ["DEPLOYMENT.en.md"]="DEPLOYMENT.md"
+  ["部署指南-v1.0.0.md"]="DEPLOYMENT.zh-CN.md"
   ["部署指南-繁體-v1.0.0.md"]="DEPLOYMENT.zh-HK.md"
-  ["版本发布说明-v1.0.0.md"]="RELEASE.md"
+  ["RELEASE.en.md"]="RELEASE.md"
+  ["版本发布说明-v1.0.0.md"]="RELEASE.zh-CN.md"
 )
 for source_name in "${!DOC_MAP[@]}"; do
   source_path="$FRONTEND/files/$source_name"
