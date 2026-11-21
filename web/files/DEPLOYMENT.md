@@ -108,7 +108,7 @@ only deploys the application.
 
 ### 4.1 Environment
 
-See section 2.1 of HOWTO for the full Debian/Ubuntu command. Minimum versions:
+See section 1.2 of HOWTO for the full Debian/Ubuntu command. Minimum versions:
 
 | Component | Minimum |
 | --- | --- |

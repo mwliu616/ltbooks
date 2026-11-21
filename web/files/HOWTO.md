@@ -11,9 +11,10 @@ The installer asks for a domain name or server IP. When a domain is used, it als
 for an optional certificate email address. Everything else is automatic.
 
 ```bash
+# Keep the archive and its .sha256 file in the same directory.
+sha256sum -c LtBooks-Ver1.0-auto-clean-20261121.tar.gz.sha256
 tar -xzf LtBooks-Ver1.0-auto-clean-20261121.tar.gz
 cd LtBooks-Ver1.0-auto-clean-20261121
-sha256sum -c ../LtBooks-Ver1.0-auto-clean-20261121.tar.gz.sha256
 sudo ./install.sh
 ```
 
@@ -37,8 +38,8 @@ sudo LTBOOKS_DOMAIN=finance.example.com LTBOOKS_SSL_EMAIL=admin@example.com ./in
 
 The installer performs these steps:
 
-1. Checks the system version, architecture, disk space and root access. Installs any
-   missing Nginx, MariaDB, PHP-FPM, Python, Node.js, OCR/PDF packages and Certbot.
+1. Checks root access and that `apt-get` is available. Installs any missing Nginx,
+   MariaDB, PHP-FPM, Python, Node.js, OCR/PDF packages and Certbot.
 2. Creates the `ltbooks` service account and directories, and generates a random
    database password and internal API token.
 3. Creates the database and imports the empty schema, 108 accounts and 12 tax rates,

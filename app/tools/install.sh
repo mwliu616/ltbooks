@@ -38,36 +38,38 @@ die() { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 
 is_ipv4() { [[ "$1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; }
 
-# 全自动安装需要两个交互输入：域名或服务器 IP，以及可选的证书通知邮箱。
-# 未通过 LTBOOKS_DOMAIN / LTBOOKS_SSL_EMAIL 提供时，在交互终端询问；无终端则报错或走自签名。
+# Automatic mode needs two interactive inputs: the domain or server IP, and an
+# optional certificate email. When they are not provided through LTBOOKS_DOMAIN /
+# LTBOOKS_SSL_EMAIL, ask on a terminal; without a terminal fail or use self-signed.
 if [[ "$MODE" == "auto" && -z "${LTBOOKS_DOMAIN:-}" ]]; then
   if [[ -t 0 ]]; then
-    printf '\n请输入要部署的域名或服务器 IP（例如 finance.example.com 或 203.0.113.10）：\n> '
+    printf '\nDomain name or server IP (for example finance.example.com or 203.0.113.10):\n> '
     read -r DOMAIN_INPUT
-    [[ -n "${DOMAIN_INPUT:-}" ]] || die "域名或 IP 不能为空"
+    [[ -n "${DOMAIN_INPUT:-}" ]] || die "The domain name or IP address cannot be empty"
     DOMAIN="$DOMAIN_INPUT"
   else
-    die "自动安装需要域名或 IP：请设置 LTBOOKS_DOMAIN，或在交互终端运行"
+    die "Automatic installation needs a domain or IP: set LTBOOKS_DOMAIN or run in an interactive terminal"
   fi
 fi
 
-# 纯 IP 无法申请公开证书，直接走自签名 HTTPS。
+# A public certificate cannot be issued for a bare IP, so use self-signed HTTPS.
 if is_ipv4 "$DOMAIN" && [[ -z "${LTBOOKS_SSL_MODE:-}" ]]; then
   SSL_MODE="selfsigned"
 fi
 
-# 域名部署时再问一次证书通知邮箱：Let's Encrypt 需要它做到期提醒。
-# 留空则继续用自签名证书；如强制 letsencrypt 则必须填写。
+# For domain deployments ask once more for the certificate email: Let's Encrypt
+# needs it for expiry notices. A blank value keeps the self-signed certificate;
+# an explicit letsencrypt mode requires an address.
 if [[ "$MODE" == "auto" && "$SSL_MODE" != "off" && "$SSL_MODE" != "selfsigned" ]] \
    && ! is_ipv4 "$DOMAIN" && [[ "$DOMAIN" != *"example.com" && "$DOMAIN" != "_" ]] \
    && [[ -z "$SSL_EMAIL" ]]; then
   if [[ -t 0 ]]; then
-    printf '\n请输入用于 Let'"'"'s Encrypt 证书通知的邮箱（可留空，留空则使用自签名 HTTPS）：\n> '
+    printf '\nEmail address for Let'"'"'s Encrypt certificate notices (leave blank for a self-signed certificate):\n> '
     read -r SSL_EMAIL_INPUT
     SSL_EMAIL="${SSL_EMAIL_INPUT:-}"
   fi
   if [[ "$SSL_MODE" == "letsencrypt" && -z "$SSL_EMAIL" ]]; then
-    die "LTBOOKS_SSL_MODE=letsencrypt 需要邮箱：请设置 LTBOOKS_SSL_EMAIL，或在交互终端运行并输入"
+    die "LTBOOKS_SSL_MODE=letsencrypt requires an email: set LTBOOKS_SSL_EMAIL or run interactively"
   fi
 fi
 [[ -z "$SSL_EMAIL" || "$SSL_EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] \
@@ -313,8 +315,7 @@ $(if [[ "$SSL_MODE" == "off" ]]; then printf '    root %s;\n    index index.php;
 }
 $(if [[ "$SSL_MODE" != "off" ]]; then cat <<SSL
 server {
-    listen 443 ssl;
-    http2 on;
+    listen 443 ssl http2;
     server_name $DOMAIN;
     root $WEB_ROOT;
     index index.php;
@@ -422,7 +423,7 @@ cat > "$BACKUP_TIMER" <<'EOF'
 [Unit]
 Description=LtBooks automatic backup scheduler
 [Timer]
-# 每分钟检查一次；具体执行时间由界面「自动备份设置」决定（香港时间）。
+# Checked every minute; the interface settings decide the actual run time (Hong Kong time).
 OnCalendar=*-*-* *:*:00
 AccuracySec=30s
 Persistent=true
@@ -435,12 +436,14 @@ say "7/9 Applying file ownership and directory permissions"
 if [[ "$MODE" == "auto" ]]; then
   chown -R root:ltbooks "$APP_DIR"
   chown -R "$RUN_USER":ltbooks "$APP_DIR/storage" "$BACKUP_DIR"
+  chmod 700 "$APP_DIR/storage"
   chown root:ltbooks "$APP_DIR/.env"
   chmod 640 "$APP_DIR/.env"
   chmod 600 "$APP_DIR/storage/initial-credentials.txt"
   chown root:root "$APP_DIR/storage/initial-credentials.txt"
   chown -R root:ltbooks "$WEB_ROOT"
   chown -R "$RUN_USER":ltbooks "$WEB_ROOT/assets"
+  chmod -R g+rwX "$WEB_ROOT/assets"
   chown -R "$WEB_USER":ltbooks "$UPLOAD_DIR"
   chmod 2770 "$UPLOAD_DIR" "$UPLOAD_DIR/tmp"
   chmod 700 "$BACKUP_DIR"
@@ -465,7 +468,7 @@ if [[ "$MODE" == "auto" ]]; then
     if [[ "$attempt" == "20" ]]; then systemctl status ltbooks-api --no-pager >&2 || true; die "Backend health check failed"; fi
     sleep 1
   done
-  "$APP_DIR/venv/bin/python" -c 'from core.agent import _run; import json; print(json.dumps(_run("finance_journal_entry_check", {"entry":{"lines":[]}}), ensure_ascii=False))' >/dev/null
+  (cd "$APP_DIR" && "$APP_DIR/venv/bin/python" -c 'from core.agent import _run; import json; print(json.dumps(_run("finance_journal_entry_check", {"entry":{"lines":[]}}), ensure_ascii=False))') >/dev/null
 
   request_certificate=0
   if [[ "$SSL_MODE" == "letsencrypt" ]] && ! is_ipv4 "$DOMAIN"; then request_certificate=1; fi
@@ -481,7 +484,7 @@ if [[ "$MODE" == "auto" ]]; then
     fi
   elif [[ "$SSL_MODE" != "off" ]]; then
     if is_ipv4 "$DOMAIN"; then
-      warn "已按 IP 部署：使用自签名 HTTPS，浏览器首次访问需手动信任证书。绑定域名后可重新运行并设置 LTBOOKS_SSL_EMAIL 申请公开证书"
+      warn "IP deployment uses a self-signed HTTPS certificate; trust it manually in the browser on first visit. Bind a domain and rerun with LTBOOKS_SSL_EMAIL to request a public certificate"
     else
       warn "Using a self-signed HTTPS certificate. Set LTBOOKS_DOMAIN and LTBOOKS_SSL_EMAIL to request a public certificate"
     fi
