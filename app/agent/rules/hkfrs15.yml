@@ -1,0 +1,43 @@
+# HKFRS 15 收入确认规则文件
+# ─────────────────────────────────────────────────────────────────────────────
+# 本文件是「规则唯一来源」。智能体只能引用本文件中已写明的 case，
+# 不得依据自身知识补写条款、编号或判断标准。
+#
+# 维护规则：
+#   1. 由财务负责人 / 技术会计（technical accounting）人工维护并签字。
+#   2. AI 不得生成、补全或改写本文件；AI 只能读取。
+#   3. cases 为空时，任何收入确认判断都必须输出「规则未覆盖，需人工判断」。
+#
+# 每个 case 的字段说明：
+#   id                    唯一编号，引用时写 R-001 形式
+#   title                 情形名称
+#   applies_when          触发条件（写得足够具体，避免模型自由裁量）
+#   performance_obligation unfulfilled | partial | fulfilled
+#   credit_account         contract_liability | contract_asset | revenue
+#   receivable             是否已具备无条件收款权（true 才允许建议 receivable）
+#   timing                point_in_time | over_time
+#   basis                 所依据的 HKFRS 15 段落（由人工填写）
+#   human_approval        是否必须主管复核
+#   note                  其他限制条件
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: 0
+status: template
+updated_at: null
+owner: null
+last_reviewed_by: null
+
+cases: []
+
+# 填写示例（取消注释后按实际情况修改，不要照抄）：
+# cases:
+#   - id: R-001
+#     title: 预收年度服务费，服务按年均匀提供
+#     applies_when: 客户在合同开始时一次性支付 12 个月服务费，且服务在 12 个月内持续提供
+#     performance_obligation: partial
+#     credit_account: contract_liability
+#     receivable: false
+#     timing: over_time
+#     basis: HKFRS 15 第 38 段、第 105-107 段（由财务负责人核对后填写）
+#     human_approval: true
+#     note: 按月确认收入；未提供服务部分留存在合同负债

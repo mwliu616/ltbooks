@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS email_log (
+  email_id      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  entity_id     BIGINT UNSIGNED NOT NULL,
+  doc_type      VARCHAR(32) NOT NULL,
+  doc_id        BIGINT UNSIGNED NULL,
+  doc_no        VARCHAR(64) NULL,
+  to_addrs      VARCHAR(1000) NOT NULL,
+  cc_addrs      VARCHAR(1000) NULL,
+  subject       VARCHAR(500) NOT NULL,
+  attachments   VARCHAR(1000) NULL,
+  message_id    VARCHAR(255) NULL,
+  status        ENUM('sent','failed') NOT NULL DEFAULT 'sent',
+  error         VARCHAR(1000) NULL,
+  sent_by       VARCHAR(100) NOT NULL,
+  sent_at       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (email_id),
+  KEY idx_email_entity (entity_id, sent_at),
+  KEY idx_email_doc (doc_type, doc_id),
+  CONSTRAINT fk_email_entity FOREIGN KEY (entity_id) REFERENCES entities (entity_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

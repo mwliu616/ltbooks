@@ -1,0 +1,178 @@
+# ============================================================================
+# HKFRS 15（2022）收入确认规则
+#
+# v2：引入五步法完整框架。单张发票仍走 invoice_to_revenue_mapping（保持不变），
+#     多履约义务合同走五步法模块 core/hkfrs15.py + core/contracts.py。
+#
+# 唯一规则来源：代码不得硬编码"见票即收入"（§2.6）。
+# 未覆盖情形 → pending_review(kind='invoice')，不得由模型臆测。
+# AI 只读，不得改写本文件（§7.7.14）。
+#
+# 【规格缺陷修正记录】
+# §3.3.1 原文写作：
+#   invoice_to_revenue_mapping:
+#     when_po_status: fulfilled
+#       debit: trade_receivables
+# 这不是合法 YAML（标量值后又缩进子键，且 when_po_status 重复出现）。
+# 此处改为映射列表，语义完全等价。
+# ============================================================================
+version: 2
+status: active
+updated_at: "2026-11-07"
+framework: "HKFRS 15 (2022)"
+owner: null          # 待财务负责人签署
+reviewed_by: null    # 为空时所有判断降级为需要人工确认
+
+default_recognition: point_in_time
+
+over_time_criteria:
+  - customer_simultaneously_receives_and_consumes: true
+  - creates_or_enhances_customer_controlled_asset: true
+  - no_alternative_use_and_right_to_payment: true
+
+# 履约义务状态 → 借贷科目
+invoice_to_revenue_mapping:
+  - when_po_status: fulfilled
+    debit: trade_receivables
+    credit: revenue
+  - when_po_status: unfulfilled
+    debit: trade_receivables
+    credit: contract_liability
+  - when_po_status: partial        # 与 invoices.performance_obligation_status 枚举一致
+    debit: trade_receivables
+    credit: revenue
+  - when_po_status: undetermined
+    action: pending_review
+    kind: invoice
+    reason: 履约义务状态不明确，禁止自动判断
+
+# 开票即确认的实务便捷法：默认关闭，显式启用才生效
+as_invoiced_expedient:
+  enabled: false
+
+contract_asset_rule:
+  enabled: true
+  applies_when: 已履约但收款权尚未成为无条件权利
+  debit: contract_asset
+  credit: revenue
+  reclassify_to_receivable_when: 收款权成为无条件权利
+
+contract_liability_rule:
+  enabled: true
+  applies_when: 已收款或已开票但履约义务未完成
+  debit: trade_receivables
+  credit: contract_liability
+
+# 逻辑科目名 → 科目编码
+account_mapping:
+  trade_receivables: "1130"
+  trade_receivables_fx: "1131"
+  contract_asset: "1140"
+  contract_liability: "2120"
+  revenue: "4100"
+  service_revenue: "4200"
+  other_income: "4300"
+
+requires_human_review_when:
+  - performance_obligation_status == 'undetermined'
+  - 无匹配的 mapping 条目
+  - reviewed_by 为空
+  - confidence == 'low'
+  - 同一合同同时存在 contract_asset 与 contract_liability
+
+# ============================================================================
+# 五步法框架（v2 新增）
+# 每步的判定条件与准则条文对照；引擎实现见 core/hkfrs15.py。
+# ============================================================================
+five_step_framework:
+  step_1_identify_contract:
+    reference: "HKFRS 15.9-16"
+    criteria:
+      - key: approved
+        requirement: 合同各方已批准该合同并承诺将履行各自义务
+      - key: rights_identifiable
+        requirement: 合同明确了各方与所转让商品或服务相关的权利
+      - key: payment_terms
+        requirement: 合同明确了与所转让商品或服务相关的支付条款
+      - key: commercial_substance
+        requirement: 合同具有商业实质
+      - key: probable_collection
+        requirement: 企业有权取得的对价很可能收回
+    on_failure: 不得确认收入；存为草稿并转人工复核
+
+  step_2_identify_obligations:
+    reference: "HKFRS 15.22-30"
+    requires:
+      - 每项履约义务须有可明确区分的商品或服务
+      - 每项履约义务须有单独售价，否则无法按相对单独售价分摊
+      - 选择「一段时间内」确认的，须指明满足 HKFRS 15.35 的哪一项条件
+      - 选择「一段时间内」确认的，须指明履约进度计量方法
+    overtime_criteria:
+      1: 客户在企业履约的同时即取得并消耗企业履约所带来的经济利益
+      2: 企业履约过程中所产出的商品具有不可替代用途，且企业在整个合同期间内有权就累计至今已完成的履约部分收取款项
+      3: 企业履约过程中所产出的商品或服务具有不可替代用途，且企业有权就累计至今已完成的履约部分收取款项
+    progress_methods: [input, output, milestone]
+
+  step_3_transaction_price:
+    reference: "HKFRS 15.47-72"
+    formula: 固定对价 + 约束后的可变对价 + 重大融资成分 + 非现金对价 − 应付客户对价
+    variable_consideration:
+      methods: [expected_value, most_likely]
+      constraint: 仅计入极可能不会发生重大转回的金额（HKFRS 15.56-58）
+    financing_component:
+      reference: "HKFRS 15.60-65"
+      practical_expedient: 间隔不超过一年的可不调整
+    payable_to_customer:
+      reference: "HKFRS 15.70-72"
+
+  step_4_allocate:
+    reference: "HKFRS 15.73-86"
+    basis: 按各项履约义务单独售价的相对比例分摊
+    rounding: 尾差计入分摊金额最大的履约义务，确保合计等于交易价格
+    discount_allocation: 有确凿证据表明折扣仅与特定履约义务相关的，分摊至该义务
+
+  step_5_recognise:
+    reference: "HKFRS 15.31-45"
+    point_in_time:
+      reference: "HKFRS 15.31-38"
+      indicators:
+        - 企业就该商品享有现时收款权利
+        - 企业已将该商品的法定所有权转移给客户
+        - 企业已将该商品实物转移给客户
+        - 企业已将该商品所有权上的主要风险和报酬转移给客户
+        - 客户已接受该商品
+    over_time:
+      reference: "HKFRS 15.35-37, 39-45"
+      measure: 按履约进度确认，进度方法须一贯运用
+
+# ============================================================================
+# 合同余额划分（v2 新增）
+# ============================================================================
+contract_balances:
+  reference: "HKFRS 15.105-109"
+  receivable: 收款权已成为无条件权利
+  contract_asset: 已确认收入但收款权尚未成为无条件权利
+  contract_liability: 已收对价或已开票但尚未确认收入
+  presentation: 合同资产与合同负债须分别列示，不得抵销（除非准则允许）
+
+# ============================================================================
+# 合同成本（v2 新增）
+# ============================================================================
+contract_costs:
+  reference: "HKFRS 15.91-98"
+  obtain:
+    rule: 为取得合同发生的增量成本，预期能够收回的，确认为资产
+    practical_expedient: 摊销期不超过一年的，可在发生时计入费用
+  fulfil:
+    rule: 为履行合同发生的成本，不属于其他准则范围的，满足条件时确认为资产
+
+# ============================================================================
+# 披露要求（v2 新增）
+# ============================================================================
+disclosures:
+  disaggregation: "HKFRS 15.114-115"
+  contract_balances: "HKFRS 15.116-118"
+  performance_obligations: "HKFRS 15.119-120"
+  remaining_performance_obligations: "HKFRS 15.120"
+  significant_judgements: "HKFRS 15.122-126"
+  contract_costs: "HKFRS 15.127-128"

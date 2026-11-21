@@ -1,0 +1,49 @@
+# ============================================================================
+# 税率白名单（§3.3.3）
+# 反推税率不在白名单内 → pending_review(kind='tax_rate_invalid')，
+# 禁止自动入账（§2.5）。
+# ============================================================================
+version: 1
+status: active
+updated_at: "2026-11-07"
+
+# §3.3.3 规定的档位
+allowed_rates: [0.13, 0.09, 0.06, 0.03, 0.00]
+tolerance: 0.0001
+
+# 未匹配时行为
+on_unmatched_rate:
+  action: pending_review
+  kind: tax_rate_invalid
+  reason: 反推税率不在白名单内，禁止自动入账
+
+# 香港利得税两级制（§2.8 / §3.7.2）
+# 注意：利得税与销项税是两套体系——白名单管发票销项/进项税率，
+# 两级制管应评税利润的税率，二者不冲突。
+two_tier_rules:
+  first_threshold: 2000000
+  first_rate: 0.0825
+  remainder_rate: 0.1650
+  flat_rate: 0.1650
+  status_handling:
+    nominated:
+      action: apply_two_tier
+      output: 首 200 万 8.25%，其后 16.5%
+    not_nominated:
+      action: apply_flat
+      output: 全额 16.5%，不适用两级制
+    undetermined:
+      action: pending_review
+      kind: tax_entity_status
+      output: 提名状态未确定，禁止税额计算
+
+tax_adjustment_items:
+  - key: fx_gain_loss
+    desc: 汇兑损益（含外币银行账户重估差额）
+    default_treatment: 需人工判断是否调整
+  - key: depreciation_vs_capital_allowance
+    desc: 会计折旧与税务折旧免税额差异
+  - key: non_deductible_expenses
+    desc: 不可扣除费用
+  - key: tax_exempt_income
+    desc: 免税收入（离岸利润、股息等）

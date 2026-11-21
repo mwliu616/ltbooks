@@ -1,0 +1,11 @@
+# ---- 运行时 ----
+# files/ 下的产品文档需要入库；只忽略体积大的安装包产物
+files/releases/
+storage/
+*.log
+*.bak
+*.bak-*
+
+# ---- 临时 ----
+*.tmp
+.DS_Store

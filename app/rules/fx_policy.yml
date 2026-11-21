@@ -1,0 +1,69 @@
+# ============================================================================
+# 汇率政策（§3.3.2 / §2.7）
+# 绑定日由本文件决定，代码不得自选。
+# ============================================================================
+version: 1
+status: active
+updated_at: "2026-11-07"
+
+functional_currency: HKD
+
+# 默认绑定到收入确认日；不得在 invoice_date 与
+# revenue_recognition_date 之间自行选择（§2.7）
+default_rate_basis: revenue_recognition_date
+
+# 预付款场景按预付款日汇率：默认关闭，显式启用才生效
+advance_payment_rate: false
+
+fallback_to_prior_business_day: true
+fallback_source_tag: "ECB:fallback"
+fallback_max_lookback_days: 5
+
+on_missing: pending_review
+pending_kind: fx_missing
+
+# 各业务类型的绑定基准
+rate_binding:
+  revenue: revenue_recognition_date
+  purchase: bill_date
+  payment: payment_date
+  bank_line: txn_date
+  revaluation: period_end_date
+
+precision:
+  stored_rate_decimals: 10
+  amount_decimals: 2
+  intermediate: integer_cents
+
+# 跨币种对账折算（§3.5.2 路径 B）
+cross_currency_match:
+  basis: txn_date
+  tolerance_percent: 1.0
+  tolerance_absolute: 5.00
+  exceed_tolerance_action: pending_review
+  pending_kind: bank_match
+  record_rate: true
+
+rate_anomaly:
+  enabled: true
+  window_days: 30
+  deviation_threshold_percent: 5.0
+  pending_kind: fx_rate_anomaly
+
+# 货币性项目：缺省参与重估（宁可多做，不可漏做，§2.12）
+monetary_items:
+  trade_receivables: true
+  trade_receivables_fx: true
+  trade_payables: true
+  trade_payables_fx: true
+  foreign_bank_accounts: true
+  contract_assets: false
+  prepayments: false
+
+revaluation:
+  enabled: true
+  entry_source_type: fx_reval
+  gain_loss_account_realised: "4410"
+  gain_loss_account_unrealised: "4420"
+  mark_tax_adjustment: true
+  idempotent: true

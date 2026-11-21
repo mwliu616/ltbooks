@@ -1,0 +1,20 @@
+{
+  "name": "@local/dsh-hkfrs-finance-guardian",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lib",
+    "rules",
+    "cordis.patch.yml",
+    "persona.md",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

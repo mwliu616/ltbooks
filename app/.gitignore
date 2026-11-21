@@ -1,0 +1,38 @@
+# ---- 密钥与本地配置 ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+初始账号.txt
+账号口令.txt
+
+# ---- 运行时数据 ----
+storage/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
+.venv/
+
+# ---- 备份与临时文件 ----
+*.bak
+*.bak-*
+*.broken
+*.orig
+*.rej
+*.log
+*.tmp
+/tmp-*
+
+# ---- 导出与产物 ----
+reports-out/
+reports-i18n/
+docs-legacy/
+
+# ---- 编辑器 ----
+.DS_Store
+.idea/
+.vscode/
+storage/

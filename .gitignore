@@ -1,0 +1,27 @@
+# Python
+app/venv/
+**/__pycache__/
+*.pyc
+app/.env
+app/.env.*
+
+# Runtime data
+app/storage/
+storage/
+uploads/
+backups/
+*.log
+
+# Generated reports and exports
+app/reports-out/
+app/reports-i18n/
+
+# Release binaries
+web/files/releases/
+
+# Web runtime files
+web/.user.ini
+web/storage/
+
+# Legacy archive
+archive/
