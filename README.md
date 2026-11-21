@@ -12,8 +12,6 @@ lives in MariaDB 10.11. Every amount, tax figure and report total is calculated 
 deterministic code; the AI features only read documents, suggest account codes and write
 commentary, and never post an entry without human confirmation.
 
-Live installation: https://finance.ledu.com.hk
-
 ## Features
 
 - **Accounting**: chart of accounts, opening balances, manual journals, exchange rates,
