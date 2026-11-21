@@ -1,122 +1,160 @@
-# 更新日志
+# Changelog
 
-## 维护更新 — 2026-11-21（版本号仍为 1.0.0）
+## Maintenance update, 2026-11-21 (version stays 1.0.0)
 
-本次为线上维护更新，不改变数据模型，无需迁移；安装包仍按 1.0.0 命名。
+This is an online maintenance update. It does not change the data model and needs no
+migration. Packages keep the 1.0.0 name.
 
-### 三语（简中 / 繁中 / English）
+### Languages (Simplified Chinese, Traditional Chinese, English)
 
-- 补齐前端英文与繁体固定词条（3310 → 3349 条），覆盖银行、搜索、空状态、
-  凭证/费用、附件提示、循环单据与 8 套主题名称。
-- 新增动态 SMTP 整句翻译规则（外发服务器 / SSL / STARTTLS / 认证）。
-- 修复真实损益表 PDF 遗留中文表头：`本期 / 上年 / 变动` 与比较期间副标题
-  按语言输出；繁体“变动”修正为“變動”。
-- 修复日记账 PDF 状态码未翻译（`manual` → `Manual entry`、`posted` → `Posted`）。
-- PDF 接口错误详情随请求语言输出，不再出现英文前缀接中文详情；未知报表类型
-  保留传入的类型名。
-- 年度报表包 `MANIFEST.txt` 三语化：标题、生成信息、报表说明、销售/采购单
-  数量单位与失败标记；文件名保持英文以利跨平台。
+- Added missing English and Traditional Chinese interface strings (3310 to 3349
+  entries), covering banking, search, empty states, vouchers and expenses, attachment
+  hints, recurring documents and the eight theme names.
+- Added dynamic SMTP sentence rules (outgoing server, SSL, STARTTLS, authentication).
+- Fixed Chinese headers left in real P&L PDFs: this period, prior year, change and the
+  comparison subtitle now follow the requested language. The Traditional Chinese term
+  for change was corrected.
+- Fixed untranslated journal PDF status values (`manual` to `Manual entry`, `posted` to
+  `Posted`).
+- PDF error details now follow the requested language instead of mixing an English
+  prefix with a Chinese detail. Unknown report types keep the supplied type name.
+- The annual report package `MANIFEST.txt` is translated: title, generation
+  information, report notes, sales and purchase units, and failure flags. File names
+  stay English for cross-platform use.
 
-### 银行与界面
+### Banking and interface
 
-- 银行「导入月结单」改为列表优先：默认显示已导入的月结单（时间、文件名、账户、
-  期间、行数），支持查看该账户流水与下载原始文件；「＋ 导入月结单」切换到独立
-  上传界面（当前页切换，不含列表），识别内容展示在下方，经确认框二次确认后才写入系统。
-- 上传区只保留「银行账户 + 文件」两项；移除原「导入对账单」卡片中的文件名、
-  期初/期末余额、借贷合计、期间与 CSV 明细等手填字段。导入时余额、期间与明细
-  由解析结果自动带出，期间取明细日期的最小值与最大值。
-- 解析上传时保留原始月结单到 `storage/bank-statements/<实体>/`（按 SHA-256 去重、
-  权限 600）；新增列表与下载接口，下载经 `download.php?statement=<批次号>` 代理。
-- 销售菜单移除重复的「新建发票」入口，保留发票列表页的「＋ 新建发票」。
-- 会计科目页重新规整：大类标题（资产/负债/权益/收入/销售成本/费用）每组只出现一次并显示科目数，
-  新增科目表单改为整行展开面板（六列网格，窄屏两列），操作列右对齐并加宽；
-  表格限高 68vh、表头吸顶，统计仍并入工具栏。
-- 日记账列表每行新增「附件」按钮并显示已挂数量：在分录明细下方直接上传（可多选）、
-  查看与删除附件；`GET /journal` 列表返回 `file_count`，附件仍统一存放 `doc_files`
-  （`doc_type=journal`），审计角色只读。
-- 日记账操作按钮改为跳转独立页面：新增 `?p=journal-view&id=…` 分录详情页，集中处理
-  明细查看、草稿编辑/删除、已过账冲销（需填原因并二次确认）与附件管理；列表只保留
-  「凭证」在新标签打开 PDF，不再内嵌面板与提交表单。日记簿与单据详情中的分录
-  链接同步指向新页面。
-- 日记账列表按会计科目页的方案规整：工具栏合并搜索框、本页/全部/草稿统计与
-  「打印本页凭证」「手工分录」按钮；表格按期间分组并显示笔数与借贷小计，
-  限高 68vh、表头吸顶；操作列右对齐加宽。
-- 修复日记账搜索框样式与交互：`input[type=search]` 纳入全局输入框样式（浅色边框、
-  白底、28px 高），工具栏在窄屏改为「搜索整行 → 统计 → 操作」三段；
-  行内「凭证」改为直接打开当前语言的 PDF（原下拉菜单被表格滚动容器裁剪），
-  状态标签强制单行，批量打印下拉右对齐避免溢出卡片。
-- 邮件页「SMTP 连通测试」卡与「SMTP 设置」卡统一：收件地址改为整行输入框，
-  说明文字放到输入框下方，按钮右对齐并使用主按钮样式；卡片按内容高度显示，
-  不再被左侧设置卡拉伸出大片空白。
-- 全局补充 `input[type=email]` 输入框样式（此前只覆盖 text/search/number 等），
-  邮件收件地址不再使用浏览器默认黑框，边框、白底、36px 高与圆角与其它字段一致。
-- 全站输入框样式统一：补齐 `input[type=time]`（备份时间不再是浏览器默认灰框），
-  日记账搜索条与会计科目工具栏改为与列表页 `.list-bar` 一致的 34px / 浅边框 / 13px，
-  会计科目新增表单字段恢复标准 36px；审计分页小输入、AI 指令台与隐藏文件控件保留各自样式。
+- Bank statement import now starts with a list: imported statements show time, file
+  name, account, period and line count, with links to the account transactions and the
+  original file. + Import statement opens a dedicated upload screen with no list. Parsed
+  rows appear below and are written only after a confirmation dialog.
+- The upload area keeps only bank account and file. The old import form fields (file
+  name, opening and closing balance, debit and credit totals, period, CSV detail) were
+  removed. Balances and period come from the parsed data; the period is the minimum and
+  maximum row date.
+- Parsing keeps the original statement under `storage/bank-statements/<entity>/`, named
+  by SHA-256 with mode 600. New list and download endpoints serve it through
+  `download.php?statement=<batch>`.
+- Removed the duplicate New invoice entry from the Sales menu. The invoice list keeps
+  its + New invoice button.
+- Chart of accounts was reorganised: each category heading appears once and shows the
+  account count. Add account uses a full-width panel with a six-column grid (two columns
+  on narrow screens). The action column is right aligned and wider. The table is limited
+  to 68vh with a sticky header, and the counters remain in the toolbar.
+- Each journal row has an Attachments button with the current count. Files can be
+  uploaded (multiple), viewed and deleted from the entry detail area. `GET /journal`
+  returns `file_count`. Attachments stay in `doc_files` with `doc_type=journal`.
+  Auditors have read-only access.
+- Journal actions now open a dedicated page: `?p=journal-view&id=...` handles entry
+  details, draft edit and delete, reversal with a reason and confirmation, and
+  attachments. The list keeps only the Voucher button, which opens a PDF in a new tab.
+  Entry links in the day book and document detail pages point to the new page.
+- The journal list was reorganised to match the chart of accounts: a toolbar with search,
+  counts for this page, all entries and drafts, plus Print vouchers on this page and
+  Manual entry. Rows are grouped by period with line count and debit/credit subtotals.
+  The table is limited to 68vh with a sticky header and a wider, right-aligned action
+  column.
+- Fixed the journal search field style and interaction: `input[type=search]` now uses the
+  global input style (light border, white background, 28px height). The toolbar wraps
+  into search, counts and actions on narrow screens. The row Voucher button opens a PDF
+  in the current language directly; the old dropdown was clipped by the table scroll
+  container. Status pills stay on one line and the bulk print menu aligns right.
+- The SMTP connection test card now matches the SMTP settings card: the recipient field
+  spans the row, the hint sits below it, and the button is right aligned as a primary
+  action. Cards use their content height so the test card no longer stretches.
+- Added global `input[type=email]` styling. The recipient field no longer uses the
+  browser default black border; border, background, 36px height and radius match other
+  fields.
+- Unified input styles across the application: `input[type=time]` was added (backup
+  times no longer use the browser default). Journal search and chart of accounts
+  toolbars now match the list toolbar at 34px with a light border and 13px text.
+  Add-account form fields returned to the standard 36px. Audit pager inputs, the AI
+  command box and hidden file inputs keep their own styles.
 
-### 部署包
+### Deployment packages
 
-- 部署包由三种精简为两种：
-  - **自动化部署包**（`auto`）：输入域名或服务器 IP（域名部署时再填可选的证书通知邮箱），
-    自动检查并安装全部依赖、初始化数据库、配置 Nginx / PHP-FPM / systemd / 备份 timer 与 HTTPS；
-  - **人工部署包**（`manual`）：运维手动安装系统环境，脚本仅部署应用与配置。
-- 自动部署新增 Let's Encrypt 证书通知邮箱输入：域名之后提示一次，留空继续用自签名；
-  纯 IP、`selfsigned`、`off` 不询问；`LTBOOKS_SSL_EMAIL` 可跳过交互，
-  `LTBOOKS_SSL_MODE=letsencrypt` 时邮箱必填并做格式校验。
-- 取消 AI 部署包；`install-ai.sh`、`ai-deploy.py`、`ai-deploy.conf.example` 已移除。
-- 安装器识别纯 IP：Let's Encrypt 不支持 IP 证书，自动改用自签名 HTTPS 并给出提示；
-  非交互运行且未提供 `LTBOOKS_DOMAIN` 时明确报错，不再默认占位域名。
-- 部署手册、HOWTO、部署指南、开发全路径与发布说明同步改为两种包的描述。
+- Two packages replace the previous three:
+  - **Automatic** (`auto`): asks for a domain or server IP, plus an optional certificate
+    email when a domain is used. Installs all dependencies, initialises the database and
+    configures Nginx, PHP-FPM, systemd, the backup timer and HTTPS.
+  - **Manual** (`manual`): the operator prepares the system. The script only deploys the
+    application and configuration.
+- The automatic installer asks for a Let's Encrypt certificate email after the domain.
+  A blank value keeps the self-signed certificate. A pure IP, `selfsigned` or `off` mode
+  does not ask. `LTBOOKS_SSL_EMAIL` skips the prompt. `LTBOOKS_SSL_MODE=letsencrypt`
+  requires an email and validates the format.
+- Removed the AI deployment package. `install-ai.sh`, `ai-deploy.py` and
+  `ai-deploy.conf.example` are gone.
+- The installer detects a pure IP, switches to a self-signed certificate and prints a
+  note. A non-interactive run without `LTBOOKS_DOMAIN` stops with an error instead of
+  using a placeholder domain.
+- Deployment manual, HOWTO, deployment guide, developer guide and release notes now
+  describe the two packages.
 
-### 备份与运维
+### Backup and operations
 
-- 自动备份改为**单文件滚动**：首次生成完整包，之后每次把最新全量原子重写进同一个
-  文件，目录中始终只有一个自动备份，恢复无需回溯链条；旧版增量包在首次滚动时会被
-  合并并删除。系统 crontab 每分钟调用 `tick`，按香港时间默认 09:00 / 17:00 执行，
-  `flock` 防重叠，保留 180 份。
-- 完成首次完整备份并校验：50 张表全量 dump + 305 个附件（含 SHA256 清单）。
-- PHP-FPM 并发上限 5 → 20（`start_servers` 5、`spare` 5–10），消除
-  `server reached pm.max_children` 告警。
-- 新增 `/etc/logrotate.d/ledu-api`：每日轮转、保留 14 份、压缩、`copytruncate`。
-- `app` 与 `web` 仓库提交发布基线，工作区干净，可随时回滚。
+- Automatic backup now uses a single rolling file: the first run writes a full archive,
+  then each run atomically replaces it with the latest full snapshot. The directory keeps
+  one automatic backup and restore needs no chain. Old incremental packages are merged
+  and removed on the first rolling run. The system crontab calls `tick` every minute, at
+  09:00 and 17:00 Hong Kong time by default, with `flock` to prevent overlap, keeping 180
+  files.
+- Completed and verified the first full backup: 50 tables plus 305 attachments with a
+  SHA-256 manifest.
+- Raised PHP-FPM concurrency from 5 to 20 (`start_servers` 5, spare 5 to 10), removing
+  the `server reached pm.max_children` warning.
+- Added `/etc/logrotate.d/ledu-api`: daily rotation, 14 files, compression and
+  `copytruncate`.
+- Committed release baselines for the app and web repositories so the working tree is
+  clean and can be rolled back.
 
-### 回归
+### Regression
 
-- 后端测试增至 9 个文件、131 个用例，全部通过。
-- PHP 104 个文件语法检查通过。
-- 真实下载 69 份 PDF + 18 个错误场景 + 三语年度包，文字层无固定文案混杂；
-  剩余汉字均为应保留的业务原文或法定名称。
+- Backend tests grew to 9 files and 131 cases, all passing.
+- All 104 PHP files pass `php -l`.
+- Downloaded 69 real PDFs, 18 error cases and the annual package in three languages. No
+  fixed text was mixed into another language; remaining Chinese characters are business
+  text or legal names that must be preserved.
 
-## Ver 1.0.0 — 2026-11-19
+## Version 1.0.0, 2026-11-19
 
-首个正式发布版本。
+First official release.
 
-### 功能
+### Features
 
-- AI 工作台：自然语言建单、记账、查数、对账与导出；票据识别后先确认再写入。
-- 手机端支持拍摄票据、作为附件上传并识别。
-- 销售与采购全流程：客户/供应商、报价单、销售订单、发票、账单、采购订单、
-  收付款、贷记单、经常性单据。
-- 单据邮件：报价单、销售订单、发票、账单、采购订单与贷记单均可发送。
-- 多币种：单据显示原币、汇率与功能货币折算；报表按功能货币汇总。
-- 发票/账单列表新增收款/付款进度列。
-- 财务分析报告：本月、指定月份、自然年、财务年、开业至今、自定义期间；
-  含图表、财务报表与 AI 定性解读，支持三语 PDF / DOCX 导出。
-- 8 套外观配色（6 套浅色、2 套深色）。
-- 数据库与上传票据/附件的备份恢复；自动模式每天 09:00、17:00 各备份一次，
-  默认保留 180 天。
-- 三种干净无业务数据的部署包：自动、AI 辅助、手动。
+- AI workspace: create documents, post entries, query figures, reconcile and export in
+  natural language. Receipts are confirmed before anything is written.
+- Mobile browsers can photograph a receipt, upload it as an attachment and extract it.
+- Full sales and purchase flow: customers, vendors, quotes, sales orders, invoices,
+  bills, purchase orders, payments, credit notes and recurring documents.
+- Document email for quotes, sales orders, invoices, bills, purchase orders and credit
+  notes.
+- Multi-currency: documents show the original amount, rate and functional amount;
+  reports aggregate in the functional currency.
+- Invoice and bill lists show received and paid progress.
+- Financial analysis for this month, a chosen month, calendar year, fiscal year, since
+  inception or a custom period. Includes charts, financial statements and written AI
+  commentary, exported as PDF or DOCX in three languages.
+- Eight themes (six light, two dark).
+- Backup and restore for the database and uploaded files. Automatic mode runs at 09:00
+  and 17:00 daily and keeps 180 days by default.
+- Three clean deployment packages: automatic, AI-assisted and manual.
 
-### 质量与安全
+### Quality and security
 
-- 报表金额全部来自确定性代码；AI 不生成数字，失败时回退确定性文案。
-- 附件下载做路径边界校验；SQL 全参数化；写操作强制人工确认。
-- 清理旧品牌与指定第三方服务描述，统一产品名为 LtBooks。
-- 源文件补充版权与 SPDX 许可标识；以 MIT 许可发布。
-- 71 个单元与接口回归用例通过；三种安装包通过结构、哈希、语法与空库安装验证。
+- Report figures come from deterministic code. The AI does not generate numbers and
+  falls back to deterministic text when a model is unavailable.
+- Attachment downloads validate the resolved path. SQL is fully parameterised. Writes
+  require manual confirmation.
+- Removed old brand names and third-party service references. Product name is LtBooks.
+- Source files carry copyright and SPDX identifiers. Released under MIT.
+- 71 unit and API regression cases passed. All three installers passed structure, hash,
+  syntax and empty-database installation checks.
 
-### 已知事项
+### Known items
 
-- 真实账套中一笔 20,000 元利息计入短期借款，属非现金事项，报表在
-  `cash_unclassified` 单列，系统不会自动配平或隐藏。
-- 干净包默认公司为 HKD、年结日 12-31，登录后按实际公司资料修改。
+- One real ledger entry records 20,000 of interest under short-term borrowings, a
+  non-cash item. Reports show it separately as `cash_unclassified`; the system does not
+  auto-balance or hide it.
+- A clean package starts with HKD and a 12-31 year end. Change both after login to match
+  the company.

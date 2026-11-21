@@ -42,7 +42,7 @@ rsync -a \
 cp "$BACKEND/requirements.txt" "$COMMON/requirements.txt"
 cp "$BACKEND/.env.example" "$COMMON/.env.example"
 cp "$BACKEND/LICENSE" "$COMMON/LICENSE"
-cp "$BACKEND/tools/package-readme.en.md" "$COMMON/README.md"
+cp "$BACKEND/tools/package-readme.md" "$COMMON/README.md"
 # All documentation is English by default. Two Chinese editions of the deployment
 # guide ship alongside it.
 declare -A DOC_MAP=(

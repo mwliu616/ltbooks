@@ -1,53 +1,55 @@
-# LtBooks 前端（PHP 渲染层）
+# LtBooks Front End (PHP Rendering Layer)
 
-LtBooks Ver 1.0 的浏览器端：PHP 8.1+ 服务端渲染，强制登录，简中 / 繁中 / English
-三语界面。数据与业务逻辑全部由同机 Python API 提供，本目录不直接连接数据库。
+The browser side of LtBooks 1.0: PHP 8.1+ server-side rendering, login required, and a
+three-language interface (Simplified Chinese, Traditional Chinese and English). All data
+and business logic come from the Python API on the same machine. This directory does not
+connect to the database.
 
-- 版权：Copyright (c) 2026 LEDU TECH CO., LIMITED
-- 许可：MIT（见仓库根目录 `LICENSE`）
+- Copyright (c) 2026 LEDU TECH CO., LIMITED
+- License: MIT (see `LICENSE` in the repository root)
 
-## 目录
+## Layout
 
 ```
-index.php        唯一入口：路由、导航、会话、语言、页面骨架
-lib/             认证、API 客户端、视图辅助、翻译、主题、帮助
-pages/           每页一个文件（发票、账单、报表、设置、AI 工作台等）
-assets/          app.css、图标、字体与少量交互脚本
-files/           产品文档与两种部署包（releases/）
+index.php        Single entry: routing, navigation, session, language, page shell
+lib/             Auth, API client, view helpers, translations, themes, help
+pages/           One file per page (invoices, bills, reports, settings, AI workspace)
+assets/          app.css, icons, fonts and small interaction scripts
+files/           Product documentation and the two deployment packages (releases/)
 ```
 
-## 运行要求
+## Requirements
 
-- PHP 8.1+（推荐 8.3），扩展 `curl`、`mbstring`、`xml`
-- Nginx 或其它能转发到 PHP-FPM 的 Web 服务器
-- HTTPS（会话 Cookie 带 `Secure`，纯 HTTP 无法登录）
+- PHP 8.1+ (8.3 recommended), with `curl`, `mbstring` and `xml`
+- Nginx or another web server that forwards to PHP-FPM
+- HTTPS. Session cookies use `Secure`, so plain HTTP cannot sign in
 
-PHP-FPM 需要注入：
+PHP-FPM needs these environment values:
 
 ```
 LEDU_API_BASE=http://127.0.0.1:8099
-LEDU_API_TOKEN=<与后端 .env 一致>
-LEDU_UPLOAD_DIR=<票据附件目录>
+LEDU_API_TOKEN=<same as the backend .env>
+LEDU_UPLOAD_DIR=<receipt and attachment directory>
 ```
 
-## 本地检查
+## Local checks
 
 ```bash
 for f in *.php lib/*.php pages/*.php pdf/*.php; do php -l "$f"; done
 php tests/report_period_test.php
 ```
 
-## 集中部署运维（示例）
+## Production layout (example)
 
-| 项目 | 值 |
+| Item | Value |
 | --- | --- |
-| 站点根目录 | `/opt/ltbooks/web`（`/www/wwwroot/finance.example.com` 为软链） |
-| 域名 | `finance.example.com` |
-| PHP-FPM | 8.3，pool `www`，`pm.max_children = 20` |
-| 后端 | `ledu-api.service`，`127.0.0.1:8099` |
-| 后端日志 | `/var/log/ledu-api.log`（`/etc/logrotate.d/ledu-api` 每日轮转，保留 14 份） |
-| 自动备份 | 系统 crontab 每分钟 `auto_backup.py tick`，默认 09:00 / 17:00 |
-| 证书 | Let's Encrypt，acme.sh 自动续期 |
+| Site root | `/opt/ltbooks/web` (symlinked from `/www/wwwroot/finance.example.com`) |
+| Domain | `finance.example.com` |
+| PHP-FPM | 8.3, pool `www`, `pm.max_children = 20` |
+| Backend | `ledu-api.service` on `127.0.0.1:8099` |
+| Backend log | `/var/log/ledu-api.log`, rotated daily by `/etc/logrotate.d/ledu-api`, 14 files kept |
+| Automatic backup | system crontab running `auto_backup.py tick` every minute, 09:00 and 17:00 by default |
+| Certificate | Let's Encrypt, renewed by acme.sh |
 
 ```bash
 systemctl is-active nginx php8.3-fpm ledu-api
@@ -55,18 +57,24 @@ curl -fsS http://127.0.0.1:8099/health
 crontab -l | grep auto_backup
 ```
 
-## 三语一致性检查
+## Language consistency
 
-界面语言由 `?lang=zh_cn|zh_hk|en` 或会话设置切换，`<html lang>` 随之变化。
-新增固定文案时，三个词典都要补齐：
+Switch the interface with `?lang=zh_cn`, `?lang=zh_hk` or `?lang=en`, or from the
+session setting. `<html lang>` follows the choice. New fixed text must be added to all
+three dictionaries:
 
-- 简中：源码原文
-- 繁体：`lib/lang/zh_hk.php` + 逐字兜底 `lib/zh_hk_chars.php`
-- 英文：`lib/lang/en.php`（值中不得出现汉字）
+- Simplified Chinese: the source text
+- Traditional Chinese: `lib/lang/zh_hk.php`, with the character fallback in
+  `lib/zh_hk_chars.php`
+- English: `lib/lang/en.php`. Values must not contain Chinese characters
 
-PDF 下载入口在 `pdf/` 下，错误提示已按 `lang` 参数输出对应语言。业务原文
-（公司名、客户/供应商名、手工摘要、单号、币种、HKFRS/HKAS）不翻译。
+PDF downloads live under `pdf/`. Error messages follow the `lang` parameter. Business
+text (company names, customer and vendor names, manual descriptions, document numbers,
+currencies, HKFRS/HKAS terms) is not translated.
 
-## 文档
+## Documentation
 
-完整安装、使用、开发与发布说明在 [`files/README.md`](files/README.md)。
+Full installation, usage, deployment and release documentation is under
+[`files/`](files/README.md). Installation steps are in [`files/HOWTO.md`](files/HOWTO.md)
+and the deployment guide is [`files/DEPLOYMENT.md`](files/DEPLOYMENT.md), with Simplified
+and Traditional Chinese editions alongside it.
