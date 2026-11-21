@@ -19,14 +19,13 @@ with an internal token stored in `app/.env`.
 
 ## Documentation
 
-- Product overview and capabilities: [web/files/README.en.md](web/files/README.en.md)
-- Installation and daily use: [web/files/HOWTO.en.md](web/files/HOWTO.en.md)
-- Deployment parameters and troubleshooting: [web/files/DEPLOYMENT.en.md](web/files/DEPLOYMENT.en.md)
-- Source layout and data flow: [web/files/DEVELOPMENT.en.md](web/files/DEVELOPMENT.en.md)
-- Release and acceptance notes: [web/files/RELEASE.en.md](web/files/RELEASE.en.md)
-
-Simplified Chinese and Traditional Chinese editions sit next to these files with
-`.zh-CN` and `.zh-HK` suffixes where available.
+- Product overview and capabilities: [web/files/README.md](web/files/README.md)
+- Installation and daily use: [web/files/HOWTO.md](web/files/HOWTO.md)
+- Deployment parameters and troubleshooting: [web/files/DEPLOYMENT.md](web/files/DEPLOYMENT.md)
+- Deployment guide, Simplified Chinese: [web/files/DEPLOYMENT.zh-CN.md](web/files/DEPLOYMENT.zh-CN.md)
+- Deployment guide, Traditional Chinese: [web/files/DEPLOYMENT.zh-HK.md](web/files/DEPLOYMENT.zh-HK.md)
+- Source layout and data flow: [web/files/DEVELOPMENT.md](web/files/DEVELOPMENT.md)
+- Release and acceptance notes: [web/files/RELEASE.md](web/files/RELEASE.md)
 
 ## Build and packaging
 

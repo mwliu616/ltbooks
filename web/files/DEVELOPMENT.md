@@ -1,8 +1,6 @@
 # LtBooks 1.0 Developer Guide
 
 This document describes the code layout, request flow, data rules and release process.
-It is the English edition; the Simplified Chinese edition is `DEVELOPMENT.zh-CN.md` in
-the package.
 
 ## 1. Code locations
 

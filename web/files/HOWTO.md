@@ -1,86 +1,86 @@
-# LtBooks Ver 1.0 使用与运维手册（HOWTO）
+# LtBooks 1.0: Installation and User Guide
 
-本手册面向部署与日常使用，按「安装 → 初始化 → 日常操作 → 备份恢复 → 排错」顺序编排。
-开发与二次开发请看 [开发全路径.md](开发全路径.md)。
+Copyright (c) 2026 LEDU TECH CO., LIMITED. Released under the MIT license.
 
----
+## 1. Installation
 
-## 一、安装
+### 1.1 Automatic package (recommended)
 
-提供两种部署包，按服务器条件二选一。
-
-### 1. 自动化部署包（推荐）
-
-适用：全新 Debian 12 / Ubuntu 22.04+ 服务器，可联网，以 root 操作。
-**输入域名或服务器 IP；域名部署时再填证书通知邮箱（可留空）**，其余全部自动完成。
+Use this on a new Debian 12 or Ubuntu 22.04+ server with internet access. Run it as root.
+The installer asks for a domain name or server IP. When a domain is used, it also asks
+for an optional certificate email address. Everything else is automatic.
 
 ```bash
 tar -xzf LtBooks-Ver1.0-auto-clean-20261121.tar.gz
 cd LtBooks-Ver1.0-auto-clean-20261121
-sha256sum -c ../LtBooks-Ver1.0-auto-clean-20261121.tar.gz.sha256  # 如已单独下载校验文件
+sha256sum -c ../LtBooks-Ver1.0-auto-clean-20261121.tar.gz.sha256
 sudo ./install.sh
 ```
 
-运行后提示：
+Prompts:
 
 ```text
-请输入要部署的域名或服务器 IP（例如 finance.example.com 或 203.0.113.10）：
+Domain name or server IP (for example finance.example.com or 203.0.113.10):
 > finance.example.com
 
-请输入用于 Let's Encrypt 证书通知的邮箱（可留空，留空则使用自签名 HTTPS）：
+Email address for Let's Encrypt certificate notices (leave blank for a self-signed certificate):
 > admin@example.com
 ```
 
-邮箱用于证书到期提醒；直接回车留空则改用自签名 HTTPS，后续仍可通过
-`LTBOOKS_SSL_EMAIL` 重新申请。纯 IP 部署不会询问邮箱。
-
-也可以用环境变量跳过交互：
+The email address is used for certificate expiry notices. If you leave it blank, the
+installer keeps the self-signed certificate. A pure IP address is never asked for an
+email address. You can skip both prompts with environment variables:
 
 ```bash
 sudo LTBOOKS_DOMAIN=finance.example.com LTBOOKS_SSL_EMAIL=admin@example.com ./install.sh
 ```
 
-安装器依次完成：
+The installer performs these steps:
 
-1. 检查系统版本、架构、磁盘空间与 root 权限，安装缺失的 Nginx、MariaDB、PHP-FPM、Python、Node.js、OCR/PDF 字体与 Certbot；
-2. 创建 `ltbooks` 服务账号与目录，生成随机数据库口令和内部 API 令牌；
-3. 建库并导入空 schema、108 个科目与 12 个税率，创建初始管理员；
-4. 安装后端虚拟环境与前端站点；
-5. 写 PHP-FPM pool、Nginx 站点、`ltbooks-api.service` 与 `ltbooks-backup.timer`；
-6. 配置 HTTPS 并自检，输出访问地址与初始凭据位置。
+1. Checks the system version, architecture, disk space and root access. Installs any
+   missing Nginx, MariaDB, PHP-FPM, Python, Node.js, OCR/PDF packages and Certbot.
+2. Creates the `ltbooks` service account and directories, and generates a random
+   database password and internal API token.
+3. Creates the database and imports the empty schema, 108 accounts and 12 tax rates,
+   then creates the initial administrator.
+4. Installs the backend virtual environment and the front end.
+5. Writes the PHP-FPM pool, Nginx site, `ltbooks-api.service` and
+   `ltbooks-backup.timer`.
+6. Configures HTTPS, runs a self-check and prints the access URL and credential path.
 
-**域名与 IP 的差别：**
+Certificate behaviour:
 
-| 输入 | HTTPS | 说明 |
+| Input | HTTPS | Notes |
 | --- | --- | --- |
-| 已解析到本机的域名 + 邮箱 | Let's Encrypt 公开证书 | 浏览器直接受信 |
-| 域名 + 邮箱留空 | 自签名证书 | 首次访问需手动信任；之后可用 `LTBOOKS_SSL_EMAIL` 重新申请 |
-| 纯 IP | 自签名证书 | Let's Encrypt 不支持纯 IP；绑定域名后重新运行并设置 `LTBOOKS_SSL_EMAIL` 即可申请公开证书 |
+| Resolved domain + email | Let's Encrypt certificate | Trusted by browsers |
+| Domain + blank email | Self-signed certificate | The browser warns once. You can add `LTBOOKS_SSL_EMAIL` later and rerun |
+| Pure IP | Self-signed certificate | Let's Encrypt does not issue certificates for IP addresses |
 
-常用参数（环境变量，写在命令前）：
+Common environment variables:
 
-| 变量 | 默认 | 说明 |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `LTBOOKS_DOMAIN` | 交互输入 | 域名或 IP；非交互运行时必填 |
-| `LTBOOKS_SSL_EMAIL` | 交互输入（可留空） | 填写后为域名申请 Let's Encrypt 证书 |
-| `LTBOOKS_SSL_MODE` | `auto` | `auto` / `letsencrypt` / `selfsigned` / `off` |
-| `LTBOOKS_APP_DIR` | `/opt/ltbooks` | 后端目录 |
-| `LTBOOKS_WEB_ROOT` | `/var/www/ltbooks` | 前端目录 |
-| `LTBOOKS_UPLOAD_DIR` | `/var/lib/ltbooks/uploads` | 票据附件目录 |
-| `LTBOOKS_BACKUP_DIR` | `/var/backups/ltbooks` | 备份目录 |
-| `LTBOOKS_DB_NAME` | `ltbooks` | 数据库名 |
-| `LTBOOKS_DB_USER` | `ltbooks_app` | 数据库用户 |
+| `LTBOOKS_DOMAIN` | Prompt | Domain or IP. Required when not interactive |
+| `LTBOOKS_SSL_EMAIL` | Prompt (may be blank) | Enables a Let's Encrypt certificate |
+| `LTBOOKS_SSL_MODE` | `auto` | `auto`, `letsencrypt`, `selfsigned` or `off` |
+| `LTBOOKS_APP_DIR` | `/opt/ltbooks` | Backend directory |
+| `LTBOOKS_WEB_ROOT` | `/var/www/ltbooks` | Front end directory |
+| `LTBOOKS_UPLOAD_DIR` | `/var/lib/ltbooks/uploads` | Receipts and attachments |
+| `LTBOOKS_BACKUP_DIR` | `/var/backups/ltbooks` | Backups |
+| `LTBOOKS_DB_NAME` | `ltbooks` | Database name |
+| `LTBOOKS_DB_USER` | `ltbooks_app` | Database user |
 
-安装器不会覆盖已有业务库：发现目标库已存在 LtBooks 表时立即停止，不改动任何数据。
+The installer stops if the target database already contains LtBooks tables. It does not
+overwrite an existing ledger.
 
-### 2. 人工部署包
+### 1.2 Manual package
 
-适用：已有面板管理的主机、内网服务器，或不允许自动安装系统软件的环境。
-**环境由你手动安装**，脚本只负责部署应用、初始化数据库与生成配置。
+Use this on a server managed by a hosting panel, on an internal network, or where system
+packages are managed by someone else. The script deploys the application, initialises the
+database and writes configuration. It does not install system packages, create a system
+account or start services.
 
-#### 2.1 手动安装环境
-
-以 Debian / Ubuntu 为例：
+Example environment setup on Debian or Ubuntu:
 
 ```bash
 sudo apt-get update
@@ -93,21 +93,21 @@ sudo apt-get install -y nginx php8.2-fpm php8.2-cli php8.2-mysql \
 sudo systemctl enable --now mariadb nginx php8.2-fpm
 ```
 
-| 组件 | 最低 | 推荐 |
+| Component | Minimum | Recommended |
 | --- | --- | --- |
-| PHP | 8.1 | 8.2 / 8.3 |
+| PHP | 8.1 | 8.2 or 8.3 |
 | Python | 3.10 | 3.12 |
 | Node.js | 18 | 20 |
 | MariaDB | 10.6 | 10.11 |
 
-PHP 必需扩展：`curl`、`mbstring`、`xml`、`pdo_mysql`。自检：
+Required PHP extensions: `curl`, `mbstring`, `xml`, `pdo_mysql`.
 
 ```bash
 php -v && python3 -V && node -v && mysql --version
 php -r '$m=["curl","mbstring","xml","pdo_mysql"];foreach($m as $x){echo $x,": ",extension_loaded($x)?"ok":"MISSING","\n";}'
 ```
 
-#### 2.2 部署应用
+Deploy:
 
 ```bash
 unzip LtBooks-Ver1.0-manual-clean-20261121.zip
@@ -115,283 +115,276 @@ cd LtBooks-Ver1.0-manual-clean-20261121
 ./install-manual.sh
 ```
 
-脚本只做：建目录、初始化数据库、安装前后端、生成示例配置；**不安装系统软件、
-不创建系统账号、不启动服务**。可用 `LTBOOKS_APP_DIR`、`LTBOOKS_WEB_ROOT`、
-`LTBOOKS_UPLOAD_DIR`、`LTBOOKS_BACKUP_DIR` 指定位置。
+Locations can be changed with `LTBOOKS_APP_DIR`, `LTBOOKS_WEB_ROOT`,
+`LTBOOKS_UPLOAD_DIR` and `LTBOOKS_BACKUP_DIR`.
 
-安装后把 `setup/` 下的 Nginx、PHP-FPM 示例配置按实际路径接入面板，并自行启动后端：
+Connect the Nginx and PHP-FPM samples under `setup/` to your panel, then start the
+backend yourself:
 
 ```bash
-<应用目录>/venv/bin/python <应用目录>/api.py
+<app dir>/venv/bin/python <app dir>/api.py
 ```
 
-> HTTPS 是硬性要求：登录会话 Cookie 带 `Secure`，纯 HTTP 浏览器不会回传 Cookie，
-> 表现为「登录后又跳回登录页」。
+HTTPS is required. Session cookies use the `Secure` flag, so a plain HTTP browser does
+not send them back and the login page reloads.
 
-### 3. 首次登录与初始化
+### 1.3 First login and setup
 
-1. 打开 `https://<域名>/`；
-2. 用户名 `admin`，口令见 `<应用目录>/storage/initial-credentials.txt`；
-3. 立即在「设置 → 账号」修改口令，然后删除该文件；
-4. 在「设置 → 公司信息」填写公司名称、地址、联系方式、功能货币与财务年结日；
-5. 在「会计 → 会计科目」确认科目表与语言名称，在「会计 → 汇率维护」补录所需汇率；
-6. 如需邮件，在「设置 → 邮件」填写 SMTP；如需 AI，在「设置 → 大模型」填写接口。
+1. Open `https://<domain>/`.
+2. Sign in as `admin`. The password is in `<app dir>/storage/initial-credentials.txt`.
+3. Change the password under Settings, Account. Delete the file afterwards.
+4. Under Settings, Company, set the company name, address, contact details, functional
+   currency and fiscal year end.
+5. Under Accounting, Chart of Accounts, review the account list. Add any exchange rates
+   you need under Accounting, Exchange Rates.
+6. For email, fill in SMTP under Settings, Email. For AI features, add a model endpoint
+   under Settings, Model.
 
----
+## 2. Daily use
 
-## 二、日常操作
+### 2.1 AI workspace
 
-### 1. AI 工作台
+The AI workspace is in the left navigation. Document creation, posting, queries,
+reconciliation and exports happen on the same page.
 
-入口：左侧「AI 工作台」。识别、建单、记账、查数、对账与导出都在同一页面完成，
-不需要跳到人工界面。
+- Text commands, for example "record a bill for August rent, 12,000 HKD". The system
+  returns a result card with the document, accounts, amounts and voucher number. Nothing
+  is written until you confirm.
+- Receipt extraction. Upload or photograph invoices, receipts and bank slips. The system
+  reads the content, suggests the business nature and accounts, then shows a confirmation
+  card.
+- Missing fields. The system asks only when the document really lacks a value, such as
+  a missing amount, date or counterparty.
+- Mobile. The same page accepts a photo or file from a phone browser and returns the
+  same confirmation card.
 
-- **文字指令**：例如「记录一张 8 月租金 12,000 HKD 的账单」；系统先返回结果卡片，
-  列出单据、科目、金额与凭证号，确认后才写入。
-- **票据识别**：上传或拍摄发票、收据、银行回单。系统先读取内容、判断业务性质与
-  建议科目，再给出待确认卡片；不会用固定话术反问「支出性质」这类本应由系统判断
-  的问题。
-- **字段缺失**：仅当票面确实无法判断（如无金额、无日期、收付款方不明）时才提问，
-  且问题指向具体缺失项。
-- **手机端**：同一页面在手机浏览器提供拍摄入口，可直接拍照或选择文件作为附件上传
-  并识别；识别结果同样进入确认卡片。
+### 2.2 Documents and email
 
-### 2. 单据与邮件
+Quote, sales order, invoice, bill, purchase order and credit note detail pages have a
+Send email button. The message body and attached PDF use the same template as printing:
+foreign currency documents show the original amount, rate and functional amount; the
+document uses the current interface language only; the sender name comes from
+Settings, Email.
 
-报价单、销售订单、发票、账单、采购订单、贷记单的详情页都有「发送邮件」。
-邮件正文与附件 PDF 使用与打印件相同的模板：
+### 2.3 Receipt and payment progress
 
-- 外币单据同时显示原币金额、汇率与折算后的功能货币金额；
-- 语言跟随当前界面语言，整份单据只用一种语言，不混排；
-- 发件人名称取「设置 → 邮件」中的 From Name。
+Invoice and bill lists show a received or paid progress column with the settled ratio and
+remaining amount. Click it to open the settlement workspace.
 
-### 3. 收付款进度
+### 2.4 Bank statement import
 
-发票与账单列表新增「收款进度 / 付款进度」列，直接显示已核销比例与剩余金额，
-不必再自行比对核销记录。点击可进入核销工作台处理差额。
+Bank, Import statement opens with the list of imported statements, newest first.
 
-### 4. 银行月结单导入
-
-「银行 → 导入月结单」默认显示**已导入的月结单列表**，按导入时间倒序：
-
-| 列 | 说明 |
+| Column | Meaning |
 | --- | --- |
-| 导入时间 | 该批次写入系统的时间 |
-| 文件名 | 上传时的原始文件名 |
-| 银行账户 | 导入到的账户 |
-| 期间 | 对账单的起止日期 |
-| 行数 | 该批次的明细行数 |
-| 操作 | 「查看」跳到该账户流水；「下载」取回原始文件（未保留时不显示） |
+| Imported at | When the batch was written |
+| File name | Original upload name |
+| Bank account | Account the statement belongs to |
+| Period | First and last date in the file |
+| Lines | Number of transaction lines |
+| Actions | View opens the account transactions; Download returns the original file when kept |
 
-导入步骤：
+Import steps:
 
-1. 点右上角「＋ 导入月结单」，进入独立上传界面（当前页切换，不含列表）；
-2. 选择银行账户与文件（CSV / XLSX / XLS / PDF，上限 20MB），点「上传并解析」；
-3. 识别内容显示在下方，核对预览与算术校验：期初 + 贷方 − 借方 必须等于期末；
-4. 点「导入并校验」，在确认框中确认后才写入系统——余额与期间由识别结果自动带出；
-5. 点「← 返回列表」，新记录出现在最上方。
+1. Select + Import statement. The list is replaced by a dedicated upload screen.
+2. Choose the bank account and a CSV, XLSX, XLS or PDF file (20 MB maximum). Select
+   Upload and parse.
+3. Review the parsed rows below. The arithmetic check requires opening + credits - debits
+   to equal the closing balance.
+4. Select Import and validate and confirm in the dialog. Balances and the period are
+   taken from the parsed data.
+5. Select Back to list. The new batch appears at the top.
 
-同一文件按 SHA-256 去重，不会重复入账。解析只读取文件、不写库；只有通过算术校验
-才写入流水。原始月结单保存在 `<应用目录>/storage/bank-statements/<实体>/`，按
-SHA-256 命名；升级前导入的历史记录没有保留原文件，因此没有「下载」按钮。
+Files are de-duplicated by SHA-256. Parsing never writes to the database. Original files
+are stored under `<app dir>/storage/bank-statements/<entity>/`, named by SHA-256. Records
+imported before this feature have no original file, so they show no Download button.
 
-### 5. 报表与报表中心
+### 2.5 Reports
 
-左侧「报表」只保留三个入口：报表中心、财务报表、利得税。所有明细报表从报表中心
-进入，避免同一报表出现两套入口。报表页统一带期间工具条（预设、自定义、对比），
-金额来自已过账分录。
+The Reports navigation has three entries: Report centre, Financial statements and Profits
+tax. Detail reports open from the report centre. Report pages share a period bar with
+presets, custom dates and comparison. Amounts come from posted entries.
 
-### 6. 财务分析报告
+### 2.6 Financial analysis
 
-仪表盘不再内嵌「完整财务分析报告」，页面保持简洁。分析能力与导出接口保留，
-按以下期间生成：
+The analysis can be generated for this month, a chosen month, a calendar year, the fiscal
+year, since inception or a custom period. A report contains key figures and charts,
+financial statements, and written commentary. All numbers come from deterministic report
+functions. The AI writes narrative text without inventing figures; when no model is
+available, the text falls back to deterministic wording. Exports are PDF and DOCX in
+Simplified Chinese, Traditional Chinese or English.
 
-| 期间 | 说明 |
-| --- | --- |
-| 本月 | 当前自然月 |
-| 指定月份 | 任选年月 |
-| 自然年 | 任选公历年 |
-| 财务年 | 按公司信息中的年结日计算 |
-| 开业至今 | 从首条已过账分录至今 |
-| 自定义 | 任选起止日期 |
+### 2.7 Themes
 
-报告包含：核心指标与图表、财务报表（损益、财务状况、现金流量等）、AI 定性解读。
-数字全部来自确定性报表函数；AI 只写不含量化数字的分析文字，模型不可用时回退为
-确定性文案，并在报告中标注数据来源与期间。
+Settings, Appearance offers eight themes. Themes change colour variables only; layout,
+data and reports are unchanged. The choice is stored in the current browser.
 
-导出：PDF 与 Word（DOCX），支持简中、繁中、English 三种语言。
+### 2.8 Period close and review
 
-### 7. 外观与配色
+Accounting, Review handles entries waiting for confirmation. Accounting, Period close
+checks unposted documents, unsettled items and period issues before locking a period. A
+locked period rejects new writes. Unlock it under Period locks before making adjustments.
 
-「设置 → 外观与配色」提供 8 套方案：科技蓝、暖纸灰、雾蓝低对比、墨绿沉静、
-冰川青、赤陶暖棕（浅色）与石墨夜色、午夜靛蓝（深色）。主题只改颜色变量，
-不影响布局、数据与报表内容，选择结果保存在当前浏览器。
+### 2.9 Journal and entry detail
 
-### 8. 月结与复核
+In Accounting, Journal, the Details, Attachments and Edit buttons open a dedicated entry
+page (`?p=journal-view&id=...`). The list itself has no inline action panel. The Voucher
+button opens a PDF in the current language in a new tab. The list can be searched by
+entry number, description or source, and shows counts for this page, all entries and
+drafts. Rows are grouped by period, with the line count and debit/credit subtotal for
+that period on this page.
 
-「会计 → 待复核」处理待确认分录；「会计 → 月结」检查未过账单据、未核销项与
-期间异常后锁定期间。锁定后该期间禁止再写入，需要调整时先在「期间锁定」解锁。
+The entry page provides:
 
-### 9. 日记账与分录详情
+- Entry information and lines. Reversed and reversing entries show links to each other.
+- Drafts: edit or delete. Deletion returns to the list and keeps an audit record.
+- Posted entries: enter a reversal reason and select Reverse. A reversing entry is
+  created after confirmation; the original entry stays.
+- Attachments: upload (multiple files), view and delete. The limit is 20 MB per file and
+  the SHA-256 hash is recorded on upload.
 
-「会计 → 日记账」列表的「明细」「附件」「编辑」按钮都打开独立的分录详情页
-（`?p=journal-view&id=…`），列表本身不再内嵌操作面板；行内「凭证」直接在新标签打开
-当前界面语言的 PDF（多语言导出在详情页与「打印本页凭证」菜单）。列表顶部可搜索
-分录号 / 摘要 / 来源，并显示本页、全部与草稿数量；表格按期间分组，组头给出本页
-该期间的笔数与借贷小计。详情页提供：
+Auditors can view entries and attachments but cannot edit, delete, reverse or change
+attachments.
 
-- 分录信息与明细行，已冲销/冲销分录会显示与原凭证的关联；
-- 草稿：编辑草稿、删除草稿（删除后回列表，审计日志保留）；
-- 已过账：填写「冲销原因」后点「冲销」，在确认框确认后生成反向分录，原凭证保留；
-- 附件：点「附件」定位到附件卡，可上传（多选）、查看、删除；单文件上限 20MB，
-  上传时记录 SHA-256 便于追溯。
+## 3. Language and PDF export
 
-审计角色只能查看，不能编辑、删除、冲销或改动附件。
+The interface supports Simplified Chinese, Traditional Chinese and English. Switch in the
+top right corner or with `?lang=zh_cn`, `?lang=zh_hk` or `?lang=en`. The `<html lang>`
+attribute follows the choice.
 
----
+Company legal names, customer and vendor names, manual descriptions, document numbers,
+currency codes and HKFRS/HKAS names are kept as entered and are not translated.
 
-## 三、语言与 PDF 导出
+New interface strings must be added to all three dictionaries:
 
-### 1. 三语切换
+- Simplified Chinese: the source text;
+- Traditional Chinese: `lib/lang/zh_hk.php`, with the character fallback in
+  `lib/zh_hk_chars.php`;
+- English: `lib/lang/en.php`. Values must not contain Chinese characters.
 
-界面支持简中、繁中、English，右上角切换或访问 `?lang=zh_cn|zh_hk|en`，
-`<html lang>` 同步变化。切换后整页固定文案统一为目标语言，不与其它语言混排。
+Documents, 17 report types, the financial statement set, tax reports, vouchers, financial
+analysis and the annual report package support all three languages. The annual package
+`MANIFEST.txt` also follows the selected language.
 
-以下内容**按原样保留**，不做翻译：公司法定名称、客户/供应商名称、手工摘要、
-单据编号、币种代码、HKFRS/HKAS 等准则名称。
-
-新增界面文案时必须同时补齐三份词典：
-
-- 简中：源码原文；
-- 繁中：`lib/lang/zh_hk.php`，逐字兜底在 `lib/zh_hk_chars.php`；
-- 英文：`lib/lang/en.php`，值中不得残留汉字。
-
-### 2. PDF 导出
-
-单据、17 类报表、财务报表套件、税务、凭证、财务分析与年度报表包均支持三语。
-导出时语言随当前界面；年度包内 `MANIFEST.txt` 也会输出对应语言。
-
-PDF 中的固定表头、状态与错误提示会翻译；业务原文同上保留。需要核对文字层时：
+Check the text layer of a PDF with:
 
 ```bash
-pdftotext -layout <文件>.pdf - | head -50
+pdftotext -layout <file>.pdf - | head -50
 ```
 
-## 四、备份与恢复
+## 4. Backup and restore
 
-### 1. 自动备份
+### 4.1 Automatic backup
 
-自动模式下 systemd timer（或面板计划任务）**每分钟**调用一次
-`tools/auto_backup.py tick`，由它按界面里设置的香港时间到点执行；默认 **09:00、17:00**，
-可在「设置 → 备份与恢复 → 自动备份设置」里修改（最多 4 个时间，留空表示不启用）。
-备份保留最近 180 份：
+In the automatic package, a systemd timer calls `tools/auto_backup.py tick` every minute.
+The script runs at the times configured in the interface, Hong Kong time. The default is
+09:00 and 17:00. Up to four times can be set under Settings, Backup, Automatic backup
+settings. An empty value disables the schedule. The last 180 backups are kept.
 
-- **自动备份为单文件滚动**：首次生成一份完整包，之后每次把最新全量原子重写进
-  同一个文件，目录中自动备份始终只有一个；恢复时直接读这个文件，无需回溯链条；
-- 没有可用基线（首次部署、文件被删或校验不一致）时，自动重新生成一份完整备份；
-- **手动备份始终为完整备份**，保存全部数据库与附件，并成为后续自动备份合并的文件；
-- 手动与自动备份在界面上分列两个列表，可分别下载与删除。
+- Automatic backups use a single rolling file. The first run writes a full archive; later
+  runs atomically replace it with a new full archive. The directory keeps one automatic
+  backup and restore reads that file directly.
+- If there is no usable base file, the next run creates a full backup again.
+- Manual backups are always full backups. They are kept and become the base for later
+  automatic updates.
+- Manual and automatic backups are listed separately and can be downloaded or deleted
+  independently.
 
-> 滚动更新需要整包重写，因此每次备份的读写量与备份包大小相当（当前约 62M）。
-> 这样换来的是目录中只有一个文件、恢复逻辑最简单；若数据量继续增大，可改为手动
-> 完整备份 + 更长的间隔。
+Because the rolling update rewrites the whole archive, each run reads and writes roughly
+the size of the backup (about 62 MB at the time of writing). In return the directory holds
+one file and restore is simple.
 
-检查状态：
+Check status:
 
 ```bash
-# 安装包默认：systemd timer
+# Automatic package
 systemctl list-timers ltbooks-backup.timer
 systemctl status ltbooks-backup.service
 journalctl -u ltbooks-backup.service -n 50
 ```
 
 ```bash
-# 集中部署：系统 crontab 每分钟调用 tick
+# Production layout with a system crontab
 crontab -l | grep auto_backup
 tail -n 50 /opt/ltbooks/backups/auto-backup.log
 ls -lh /opt/ltbooks/backups/
 ```
 
-集中部署还可用一条命令确认备份状态（列出类型、大小、合并次数）：
+The manual package does not register a timer. Call the same command from the panel
+scheduler every minute. To force a full backup:
 
 ```bash
-cd /opt/ltbooks/app && ./venv/bin/python tools/auto_backup.py list
+<app dir>/venv/bin/python <app dir>/tools/auto_backup.py tick
+<app dir>/venv/bin/python <app dir>/tools/auto_backup.py create
+<app dir>/venv/bin/python <app dir>/tools/auto_backup.py create --full
 ```
 
-手工模式不注册 timer，可用面板计划任务每分钟调用同一命令；如需强制完整备份，加 `--full`：
+### 4.2 Backup and restore in the interface
 
-```bash
-<应用目录>/venv/bin/python <应用目录>/tools/auto_backup.py tick
-<应用目录>/venv/bin/python <应用目录>/tools/auto_backup.py create
-<应用目录>/venv/bin/python <应用目录>/tools/auto_backup.py create --full
-```
+Settings, Backup can create a full backup, download a backup, inspect its type and file
+list, delete one backup and restore one. Automatic backups are marked as rolling and show
+how many updates they contain. A restore:
 
-### 2. 界面备份与恢复
+1. creates a full safety backup first;
+2. verifies the manifest and the SHA-256 of every file;
+3. restores the database and attachments from the selected file;
+4. reports any failure and keeps the safety backup;
+5. clears the rolling state so the next automatic backup starts from a full archive.
 
-「设置 → 备份与恢复」可立即创建完整备份、下载备份、查看类型与清单、删除单个备份并恢复。
-自动备份会显示为「自动滚动」，并标注已合并次数；**手动备份始终为完整备份**，并成为
-后续自动备份合并的文件。恢复流程：
+### 4.3 Backup contents
 
-1. 系统先强制生成一份**完整**安全备份；
-2. 校验备份清单与每个文件的 SHA256；
-3. 恢复该文件的数据库与附件（滚动包已是完整快照，无需再叠加其他文件）；
-4. 失败时报告原因，安全备份保留在备份目录；
-5. 恢复完成后清除滚动状态，下一次自动备份重新从完整包开始。
+Rolling and full backups contain all business tables, uploaded receipts and attachments,
+and the manifest. They include a `rolling` marker and the update count. They do not
+contain `.env`, model or SMTP keys, or sessions. When moving to another server, copy
+`.env` separately or enter the settings again.
 
-### 3. 备份内容
+## 5. Security
 
-滚动包与完整备份内容一致：全部业务表、上传票据与附件、备份清单；包内附带
-`rolling` 标记与已合并次数。两者都不包含：`.env`、大模型与 SMTP 密钥、会话。
-迁移服务器时需单独复制 `.env` 或重新填写设置。
+- Every write requires a signed-in session. Administrative endpoints also require the
+  admin role.
+- The front end calls the backend with an internal token that browsers never see. The
+  backend refuses to start if the token is missing or too short.
+- Attachment downloads resolve the real path and reject anything outside the upload
+  directory.
+- Login, AI uploads and attachment uploads have size and type limits. The upload
+  directory is outside the web root.
+- Production must use HTTPS. Self-signed certificates are for internal networks and
+  acceptance tests only.
 
----
+## 6. Troubleshooting
 
-## 五、安全与权限
-
-- 所有写操作要求登录会话；管理类接口额外校验管理员角色。
-- 前端到后端使用内部令牌，浏览器不可见；令牌长度不足或缺失时后端拒绝启动。
-- 附件下载做真实路径边界校验，不能借路径穿越读取目录外文件。
-- 登录表单、AI 上传、附件上传均限制大小与类型；上传目录不在 Web 根目录内。
-- 生产环境必须 HTTPS；自签名证书仅用于内网或验收。
-
----
-
-## 六、排错
-
-| 现象 | 排查 |
+| Symptom | Check |
 | --- | --- |
-| 登录后又回到登录页 | 未启用 HTTPS，Secure Cookie 未回传；检查证书与 `X-Forwarded-Proto` |
-| 502 Bad Gateway | 后端未启动或端口不符：`systemctl status ltbooks-api`，检查 `.env` 的 `LEDU_API_PORT` |
-| 页面提示内部令牌错误 | `.env` 的 `LEDU_API_TOKEN` 与后端不一致，重启后端 |
-| 邮件发送失败 | 「设置 → 邮件」主机/端口/加密方式/账号；465 用 SSL，587 用 STARTTLS |
-| 票据识别不可用 | 未配置大模型或视觉接口；在「设置 → 大模型」填写后重试 |
-| 报表数字为空 | 期间内无已过账分录；核对期间与「会计 → 日记账」 |
-| 备份任务未执行 | 安装包看 timer 状态；集中部署看 `crontab -l` 是否含 `auto_backup.py tick`，以及 `/opt/ltbooks/backups/auto-backup.log` |
-| 备份目录为空 | 首次部署尚无基线，执行 `auto_backup.py create --full`；确认 `LEDU_BACKUP_DIR` 可写 |
-| 页面偶发超时 / 502 | PHP-FPM 并发打满：`grep pm.max_children /etc/php/8.3/fpm/pool.d/www.conf`（生产为 20），必要时提高后 `systemctl reload php8.3-fpm` |
-| 后端反复重启 | 查看 `/var/log/ledu-api.log` 的 Traceback；多为 `.env` 令牌/数据库配置错误或代码与进程版本不一致，改后 `systemctl restart ledu-api` |
-| 日志占满磁盘 | 后端日志由 `/etc/logrotate.d/ledu-api` 每日轮转保留 14 份；确认 `logrotate.timer` 在运行 |
-| 安装时报缺少 PHP 扩展 | 需要 `curl`、`mbstring`、`xml`；`gd` 非必需，仅用于可选图像处理 |
+| Login returns to the login page | HTTPS is off, so the Secure cookie is not returned. Check the certificate and `X-Forwarded-Proto` |
+| 502 Bad Gateway | The backend is down or on another port. Run `systemctl status ltbooks-api` and check `LEDU_API_PORT` in `.env` |
+| Internal token error | `LEDU_API_TOKEN` in `.env` does not match the backend. Restart the backend after fixing it |
+| Email fails | Check host, port, encryption and account under Settings, Email. Use SSL on 465 and STARTTLS on 587 |
+| Receipt extraction unavailable | No model or vision endpoint is configured. Add one under Settings, Model |
+| Report figures are empty | No posted entries in the period. Check the period and the journal |
+| Backup task does not run | Check the timer in the automatic package, or `crontab -l` for `auto_backup.py tick` and `/opt/ltbooks/backups/auto-backup.log` |
+| Backup directory is empty | No base file yet. Run `auto_backup.py create --full` and confirm `LEDU_BACKUP_DIR` is writable |
+| Occasional timeout or 502 | PHP-FPM workers are exhausted. Check `pm.max_children` in `/etc/php/8.3/fpm/pool.d/www.conf` (20 in production) and reload the service |
+| Backend restarts repeatedly | Check `/var/log/ledu-api.log` for a traceback, usually a token or database setting in `.env` |
+| Logs fill the disk | `/etc/logrotate.d/ledu-api` rotates daily and keeps 14 files. Confirm `logrotate.timer` is active |
+| Installer reports a missing PHP extension | `curl`, `mbstring` and `xml` are required. `gd` is optional |
 
-日志位置：
+Log locations:
 
 ```bash
-journalctl -u ltbooks-api -n 100      # 安装包后端
-tail -n 100 /var/log/ledu-api.log     # 集中部署后端
-tail -n 100 /var/log/nginx/error.log  # Web 服务器
+journalctl -u ltbooks-api -n 100      # automatic package
+tail -n 100 /var/log/ledu-api.log     # production layout
+tail -n 100 /var/log/nginx/error.log  # web server
 ```
 
----
+## 7. Upgrade and rollback
 
-## 七、升级与回滚
+1. Create a backup under Backup before upgrading, and note the current version.
+2. Unpack the new package and run the installer with the same `LTBOOKS_*` values. The
+   existing database is kept.
+3. To roll back, restore the backup taken before the upgrade and replace the application
+   directory with the previous source.
+4. Restart the backend service after a rollback.
 
-1. 升级前在「备份与恢复」创建一次备份，并记录当前版本号；
-2. 解压新版本包，按相同 `LTBOOKS_*` 参数执行安装脚本；已有数据库会保留；
-3. 若需回滚，恢复升级前备份，并把应用目录替换为上一版本源码；
-4. 回滚后重启后端服务。
+## 8. License
 
----
-
-## 八、许可
-
-Copyright (c) 2026 LEDU TECH CO., LIMITED。以 MIT 许可发布，条款见 `LICENSE`。
+Copyright (c) 2026 LEDU TECH CO., LIMITED. Released under the MIT license. See `LICENSE`.

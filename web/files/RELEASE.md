@@ -62,7 +62,7 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 | Manual package | `releases/LtBooks-Ver1.0-manual-clean-20261121.zip` |
 | Checksums | Matching `.sha256` file next to each archive |
 | Manifests | `MANIFEST.txt` (per-file SHA-256) and `PACKAGE.json` (variant and counts) |
-| Documentation | `README.md`, `README.en.md`, `docs/HOWTO.md`, `docs/DEPLOYMENT.md`, `docs/DEPLOYMENT.zh-HK.md`, `docs/DEVELOPMENT.md`, `docs/RELEASE.md` |
+| Documentation | `README.md`, `docs/HOWTO.md`, `docs/DEPLOYMENT.md`, `docs/DEPLOYMENT.zh-CN.md`, `docs/DEPLOYMENT.zh-HK.md`, `docs/DEVELOPMENT.md`, `docs/RELEASE.md` |
 
 Both packages are clean installers: 50 empty tables, one company record, 108 accounts and
 12 tax rates. They contain no customers, vendors, documents, entries, bank transactions,

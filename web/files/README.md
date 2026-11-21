@@ -1,116 +1,124 @@
-# LtBooks Ver 1.0
+# LtBooks 1.0
 
-LtBooks 是面向香港中小型企业的会计与财务分析系统：PHP 8.3 服务端渲染界面、
-Python 3.12 记账内核、MariaDB 10.11 数据库。金额、税额与报表数字全部由确定性
-代码计算；AI 只做识别、分类建议与文字解读，不会凭空生成数字。
+LtBooks is an accounting and financial reporting system for small and medium businesses
+in Hong Kong. The browser interface is server-rendered PHP 8.3, the ledger and API run
+on Python 3.12, and data is stored in MariaDB 10.11.
 
-- 版权：Copyright (c) 2026 LEDU TECH CO., LIMITED
-- 许可：MIT（见 `LICENSE`）
-- 版本：Ver 1.0.0（2026-11-21 维护更新，版本号不变）
+Amounts, tax figures and report totals are calculated by deterministic code. The AI
+features only extract document data, suggest account classifications and write
+commentary. They do not produce numbers on their own.
 
-English version: [README.en.md](README.en.md)
+- Copyright (c) 2026 LEDU TECH CO., LIMITED
+- License: MIT (see `LICENSE`)
+- Version: 1.0.0 (maintenance update, 2026-11-21)
 
-## 1. 能做什么
+## What it covers
 
-| 范围 | 主要能力 |
+| Area | Functions |
 | --- | --- |
-| AI 工作台 | 自然语言建单、记账、查数、对账与导出；票据拍摄/上传后自动识别内容与业务性质，先出结果卡片，人工确认后才写入 |
-| 销售 | 客户档案、报价单、销售订单、发票、收款、贷记单、经常性发票；单据可发邮件，外币显示功能货币折算与汇率 |
-| 采购 | 供应商档案、采购订单、账单、费用、付款、经常性账单；同样支持邮件与外汇报价 |
-| 银行 | 银行账户、银行规则、月结单导入（已导入列表可查看与下载原始文件）、交易记录、对账工作区、账户间转账 |
-| 会计 | 会计科目、期初余额、手工分录、日记账、汇率维护、待复核、月结与期间锁定、期末重估 |
-| 报表 | 试算表、损益及其他全面收益表、财务状况表、现金流量表、账龄、银行余额、汇兑损益、利得税、财务比率、客户/供应商余额、总分类账、日记簿、销售/采购明细、财务报表套件 |
-| 财务分析 | 按本月、指定月份、自然年、财务年、开业至今或自定义期间生成公司财务分析：确定性财务数据 + 图表 + AI 定性解读，支持三语 PDF / Word 导出（仪表盘不再内嵌该组件） |
-| 设置 | 公司信息、账号、大模型、外观与配色（8 套主题）、邮件、备份与恢复、智能体管理、审计探索器、使用说明 |
+| AI workspace | Create documents, post entries, query figures, reconcile and export through natural language. Uploaded or photographed receipts are parsed and classified first; nothing is written until a person confirms the result. |
+| Sales | Customers, quotes, sales orders, invoices, receipts, credit notes, recurring invoices. Documents can be emailed and foreign currency amounts show both original and functional currency. |
+| Purchases | Vendors, purchase orders, bills, expenses, payments, recurring bills. Same email and foreign currency support. |
+| Banking | Bank accounts, bank rules, statement import (the imported list keeps the original file for download), transactions, reconciliation, transfers between accounts. |
+| Accounting | Chart of accounts, opening balances, manual journals, journal list, exchange rates, review queue, period close and lock, period-end revaluation. |
+| Reports | Trial balance, statement of profit or loss and OCI, statement of financial position, cash flows, aging, bank balances, exchange gain or loss, profits tax, financial ratios, customer and vendor balances, general ledger, day book, sales and purchase details, financial statement set. |
+| Financial analysis | Company analysis for this month, a chosen month, calendar year, fiscal year, since inception or a custom period. Deterministic figures and charts plus written commentary, exportable as PDF or Word in three languages. |
+| Settings | Company profile, user account, model settings, themes (8 presets), email, backup and restore, agent management, audit explorer, user guide. |
 
-多币种：单据与报表均按「原币金额 × 汇率 = 功能货币金额」显示，功能货币取
-公司信息中的设置；单据三语（简中 / 繁中 / English）按当前界面语言整体切换，
-不混排。
+Foreign currency: documents and reports show `original amount × rate = functional
+currency amount`. The functional currency comes from the company profile. Documents
+switch between Simplified Chinese, Traditional Chinese and English as a whole, based on
+the current interface language.
 
-## 2. 两种部署包
+## Deployment packages
 
-发布目录：`files/releases/`。两个包都是**干净、无业务数据**的安装包，只含：
+Packages are published in `files/releases/`. Both are clean installers with no business
+data. They contain:
 
-- 50 张表的空 schema、触发器与例程；
-- 一个可改名的公司实体壳（`My Company`，功能货币 HKD，财务年结日 12-31）；
-- 108 个会计科目与 12 个税率；
-- 源码、依赖清单、许可与安装脚本。
+- an empty schema for 50 tables, including triggers and routines;
+- one editable company record (`My Company`, HKD, fiscal year end 12-31);
+- 108 accounts and 12 tax rates;
+- source code, dependency list, license and installation scripts.
 
-不包含客户、供应商、单据、分录、银行流水、账户、汇率缓存、用户口令、票据、
-备份文件或任何 API 密钥。
+They do not contain customers, vendors, documents, journal entries, bank transactions,
+accounts, exchange rate caches, user passwords, receipt files, backups or API keys.
 
-| 包 | 文件 | 适用场景 |
+| Package | File | When to use it |
 | --- | --- | --- |
-| 自动化部署包 | `LtBooks-Ver1.0-auto-clean-20261121.tar.gz` | Debian / Ubuntu 新服务器。root 运行 `./install.sh`，输入**域名或服务器 IP**；域名部署时再填证书通知邮箱（可留空），自动检查并安装 Nginx、MariaDB、PHP、Python、Node、OCR/PDF 依赖与 HTTPS |
-| 人工部署包 | `LtBooks-Ver1.0-manual-clean-20261121.zip` | 已有 Web 面板、内网或需要自行控制系统软件版本。人工安装全部环境后运行 `./install-manual.sh`，仅初始化目录、数据库与配置，不改系统服务 |
+| Automatic | `LtBooks-Ver1.0-auto-clean-20261121.tar.gz` | New Debian or Ubuntu server. Run `./install.sh` as root. It asks for a domain name or server IP, then for an optional certificate email when a domain is used. It installs Nginx, MariaDB, PHP, Python, Node and the OCR/PDF dependencies, then configures HTTPS. |
+| Manual | `LtBooks-Ver1.0-manual-clean-20261121.zip` | Existing hosting panel, internal network, or a server where you manage system packages yourself. Prepare the environment first, then run `./install-manual.sh`, which only creates directories, the database and the configuration. |
 
-两种包按服务器条件二选一，不要混用。旧的 AI 部署包已取消。
+Use one package per server, not both. The old AI deployment package has been removed.
 
-纯 IP 或邮箱留空时使用自签名 HTTPS；只有「已解析域名 + 邮箱」才会申请
-Let's Encrypt 公开证书。
+A pure IP address, or an empty certificate email, results in a self-signed certificate.
+A public Let's Encrypt certificate is requested only when a resolved domain and an email
+address are both provided.
 
-每个包旁有同名 `.sha256`，包内 `MANIFEST.txt` 记录逐文件哈希，`PACKAGE.json`
-记录变体、构建日期与文件数。校验方式：
+Each package has a matching `.sha256` file. Inside the package, `MANIFEST.txt` lists a
+hash for every file and `PACKAGE.json` records the variant, build date and file count.
 
 ```bash
 sha256sum -c LtBooks-Ver1.0-auto-clean-20261121.tar.gz.sha256
 ```
 
-安装步骤见 [HOWTO.md](HOWTO.md)；部署参数、目录与排查见
-[部署指南-v1.0.0.md](部署指南-v1.0.0.md)（繁體版：[部署指南-繁體-v1.0.0.md](部署指南-繁體-v1.0.0.md)）。
-源码结构、数据流与扩展方式见
-[开发全路径.md](开发全路径.md)；本次整改与验收记录见
-[版本发布说明-v1.0.0.md](版本发布说明-v1.0.0.md)。
+Installation steps are in [HOWTO.md](HOWTO.md). Deployment parameters, directories and
+troubleshooting are in [DEPLOYMENT.md](DEPLOYMENT.md), with Simplified Chinese and
+Traditional Chinese editions in [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md) and
+[DEPLOYMENT.zh-HK.md](DEPLOYMENT.zh-HK.md). Source layout and data flow are in
+[DEVELOPMENT.md](DEVELOPMENT.md). Release and acceptance notes are in
+[RELEASE.md](RELEASE.md).
 
-## 3. 运行架构
+## Architecture
 
 ```
-浏览器
-  │  HTTPS
-  ▼
-Nginx ──► PHP-FPM（index.php，服务端渲染 + 会话）
-              │  内部 HTTP + X-Ledu-Token
-              ▼
-        Python API（127.0.0.1:8099，Flask）
-              │  参数化 SQL，事务内写入
-              ▼
-        MariaDB（生产 ltbooks / 新部署 ltbooks）
-              │
-              ├─ 票据与附件（生产 /opt/ltbooks/uploads）
-              └─ 自动备份（生产 /opt/ltbooks/backups，默认 09:00 / 17:00）
+Browser
+  |  HTTPS
+  v
+Nginx -> PHP-FPM (index.php, server-side rendering and sessions)
+             |  internal HTTP with X-Ledu-Token
+             v
+       Python API (127.0.0.1:8099, Flask)
+             |  parameterised SQL, writes inside transactions
+             v
+       MariaDB (ltbooks)
+             |
+             +- receipts and attachments (/opt/ltbooks/uploads)
+             +- automatic backups (/opt/ltbooks/backups, default 09:00 and 17:00)
 ```
 
-> 图中括号内为集中部署示例的实际值；安装包默认布局见第 4 节对照表。
-> 两种布局的服务名不同：安装包用 `ltbooks-*`，集中部署用 `ledu-api` / `php8.3-fpm`。
+- The browser never talks to the Python API directly. The front end uses an internal
+  token stored in `.env`.
+- Session cookies are `Secure`, `HttpOnly` and `SameSite=Lax`, so HTTPS is required.
+- Automatic backups use a single rolling file: the first run writes a full archive and
+  later runs atomically replace it. Manual backups are always full archives and become
+  the base for later automatic updates. Restoring a rolling archive needs no chain of
+  earlier files.
 
-- 前端只通过内部令牌访问后端，令牌存于 `.env`，浏览器拿不到。
-- 会话 Cookie 强制 `Secure` + `HttpOnly` + `SameSite=Lax`，因此必须启用 HTTPS。
-- 自动备份采用单文件滚动：首次生成完整包，之后每次把最新全量原子重写进同一个文件，
-  目录中始终只有一个自动备份；手动备份始终为完整备份，并成为后续自动更新的文件；
-  手动与自动备份在界面上分开两个列表；恢复滚动包无需回溯链条。
+## Directories
 
-## 4. 目录
-
-| 路径 | 安装包默认 | 集中部署示例 |
+| Path | Installer default | Example production layout |
 | --- | --- | --- |
-| 后端与虚拟环境 | `/opt/ltbooks` | `/opt/ltbooks/app` |
-| PHP 前端 | `/var/www/ltbooks` | `/opt/ltbooks/web`（`/www/wwwroot/finance.example.com` 为软链） |
-| 票据与附件 | `/var/lib/ltbooks/uploads` | `/opt/ltbooks/uploads` |
-| 自动与手工备份 | `/var/backups/ltbooks` | `/opt/ltbooks/backups` |
-| 后端服务 | `ltbooks-api.service` | `ledu-api.service`（日志 `/var/log/ledu-api.log`） |
-| 备份调度 | `ltbooks-backup.timer` | 系统 crontab 每分钟 `auto_backup.py tick` |
+| Backend and virtual environment | `/opt/ltbooks` | `/opt/ltbooks/app` |
+| PHP front end | `/var/www/ltbooks` | `/opt/ltbooks/web` (symlinked from `/www/wwwroot/finance.example.com`) |
+| Receipts and attachments | `/var/lib/ltbooks/uploads` | `/opt/ltbooks/uploads` |
+| Automatic and manual backups | `/var/backups/ltbooks` | `/opt/ltbooks/backups` |
+| Backend service | `ltbooks-api.service` | `ledu-api.service` (log at `/var/log/ledu-api.log`) |
+| Backup schedule | `ltbooks-backup.timer` | system crontab running `auto_backup.py tick` every minute |
 
-手工模式不写系统目录，位置由 `LTBOOKS_APP_DIR` / `LTBOOKS_WEB_ROOT` 等变量决定。
+The manual installer does not write system directories. Locations are controlled by
+`LTBOOKS_APP_DIR`, `LTBOOKS_WEB_ROOT` and related variables.
 
-## 5. 首次登录
+## First login
 
-安装完成后，初始管理员账号与随机口令保存在
-`<应用目录>/storage/initial-credentials.txt`（权限 600）。首次登录后请立即修改口令
-并删除该文件。系统不会重置已存在账号的口令，重复安装是安全的。
+After installation, the initial administrator account and a random password are stored
+in `<app directory>/storage/initial-credentials.txt` with mode 600. Change the password
+at the first login and delete the file. Existing accounts are never reset, so running
+the installer again is safe.
 
-## 6. 许可与第三方
+## License
 
-本项目以 MIT 许可发布，完整条款见 `LICENSE`。运行依赖（Flask、PyMySQL、
-WeasyPrint、python-docx、openpyxl 等）分别遵循其自身许可，清单见
-`backend/requirements.txt`。产品文档与代码中不包含任何特定云厂商、邮件服务商
-或主机面板的绑定信息。
+LtBooks is released under the MIT license. The full text is in `LICENSE` (in the
+deployment package) and in the repository root. Runtime dependencies (Flask, PyMySQL,
+WeasyPrint, python-docx, openpyxl and others) keep their own licenses; the list is in
+`backend/requirements.txt`. The documentation and code do not depend on a particular
+cloud provider, mail provider or hosting panel.

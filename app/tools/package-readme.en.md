@@ -210,7 +210,6 @@ sha256sum -c LtBooks-Ver1.0-auto-clean-*.tar.gz.sha256
 | File | Content |
 | --- | --- |
 | `README.md` | This file |
-| `README.zh-CN.md` | Simplified Chinese edition |
 | `docs/HOWTO.md` | Installation and daily use |
 | `docs/DEPLOYMENT.md` | Deployment parameters and troubleshooting |
 | `docs/DEPLOYMENT.zh-CN.md` | Simplified Chinese deployment guide |

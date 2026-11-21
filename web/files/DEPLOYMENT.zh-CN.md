@@ -37,7 +37,7 @@ LtBooks-Ver1.0-<variant>-<date>/
 ├── sql/01-schema.sql          50 张表、触发器、例程（无业务数据）
 ├── sql/02-master-data.sql     公司实体壳、108 科目、12 税率
 ├── LICENSE / README.md / MANIFEST.txt / PACKAGE.json
-└── docs/                      本指南、HOWTO、开发全路径、发布说明
+└── docs/                      本指南、HOWTO、DEVELOPMENT、RELEASE
 ```
 
 安装脚本会计算 `MANIFEST.txt` 中每个文件的 SHA-256；发布目录另有整包 `.sha256`。

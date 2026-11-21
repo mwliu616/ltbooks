@@ -91,4 +91,4 @@ PDF 接口的固定错误文案随请求语言输出，业务原文（公司名�
 - 两种干净安装包：`tools/install.sh`（自动化，输入域名/IP 与可选证书邮箱）、`tools/install-manual.sh`（人工）
 - 构建：`tools/build_release.sh`
 - 静态校验：`tools/verify_release.py`
-- 文档：前端仓库 `files/` 下的 README、HOWTO、部署指南、开发全路径与发布说明
+- 文档：前端仓库 `files/` 下的 README、HOWTO、部署指南（含简繁中文版）、开发说明与发布说明

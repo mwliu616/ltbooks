@@ -43,21 +43,16 @@ cp "$BACKEND/requirements.txt" "$COMMON/requirements.txt"
 cp "$BACKEND/.env.example" "$COMMON/.env.example"
 cp "$BACKEND/LICENSE" "$COMMON/LICENSE"
 cp "$BACKEND/tools/package-readme.en.md" "$COMMON/README.md"
-cp "$BACKEND/tools/package-readme.md" "$COMMON/README.zh-CN.md"
-# English is the default documentation language. Chinese and Traditional Chinese
-# editions ship alongside it under language suffixes.
+# All documentation is English by default. Two Chinese editions of the deployment
+# guide ship alongside it.
 declare -A DOC_MAP=(
-  ["README.en.md"]="README.md"
-  ["README.md"]="README.zh-CN.md"
-  ["HOWTO.en.md"]="HOWTO.md"
-  ["HOWTO.md"]="HOWTO.zh-CN.md"
-  ["DEVELOPMENT.en.md"]="DEVELOPMENT.md"
-  ["开发全路径.md"]="DEVELOPMENT.zh-CN.md"
-  ["DEPLOYMENT.en.md"]="DEPLOYMENT.md"
-  ["部署指南-v1.0.0.md"]="DEPLOYMENT.zh-CN.md"
-  ["部署指南-繁體-v1.0.0.md"]="DEPLOYMENT.zh-HK.md"
-  ["RELEASE.en.md"]="RELEASE.md"
-  ["版本发布说明-v1.0.0.md"]="RELEASE.zh-CN.md"
+  ["README.md"]="README.md"
+  ["HOWTO.md"]="HOWTO.md"
+  ["DEPLOYMENT.md"]="DEPLOYMENT.md"
+  ["DEPLOYMENT.zh-CN.md"]="DEPLOYMENT.zh-CN.md"
+  ["DEPLOYMENT.zh-HK.md"]="DEPLOYMENT.zh-HK.md"
+  ["DEVELOPMENT.md"]="DEVELOPMENT.md"
+  ["RELEASE.md"]="RELEASE.md"
 )
 for source_name in "${!DOC_MAP[@]}"; do
   source_path="$FRONTEND/files/$source_name"
