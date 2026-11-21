@@ -32,8 +32,9 @@ the current interface language.
 
 ## Deployment packages
 
-Packages are published in `files/releases/`. Both are clean installers with no business
-data. They contain:
+Packages are published in `files/releases/` and attached to the GitHub release at
+https://github.com/mwliu616/ltbooks/releases/tag/v1.0.0. Both are clean installers with
+no business data. They contain:
 
 - an empty schema for 50 tables, including triggers and routines;
 - one editable company record (`My Company`, HKD, fiscal year end 12-31);

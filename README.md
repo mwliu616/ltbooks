@@ -17,6 +17,16 @@ web/    PHP front end: pages, translations, docs and deployment packages
 The front end never connects to the database. It calls the API on `127.0.0.1:8099`
 with an internal token stored in `app/.env`.
 
+## Download
+
+Installers are attached to the latest release:
+
+https://github.com/mwliu616/ltbooks/releases/tag/v1.0.0
+
+- `LtBooks-Ver1.0-auto-clean-20261121.tar.gz` (automatic install)
+- `LtBooks-Ver1.0-manual-clean-20261121.zip` (manual install)
+- matching `.sha256` files
+
 ## Documentation
 
 - Product overview and capabilities: [web/files/README.md](web/files/README.md)
