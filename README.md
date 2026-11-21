@@ -1,5 +1,3 @@
-<img src="web/assets/logo-512.png" width="88" alt="LtBooks logo">
-
 # LtBooks
 
 LtBooks is an open-source accounting and financial reporting system for small and
