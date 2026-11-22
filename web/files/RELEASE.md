@@ -58,8 +58,8 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 
 | Artifact | Path |
 | --- | --- |
-| Automatic package | `releases/LtBooks-Ver1.0-auto-clean-20261121.tar.gz` |
-| Manual package | `releases/LtBooks-Ver1.0-manual-clean-20261121.zip` |
+| Automatic package | `releases/LtBooks-Ver1.0-auto-clean-20261122.tar.gz` |
+| Manual package | `releases/LtBooks-Ver1.0-manual-clean-20261122.zip` |
 | Checksums | Matching `.sha256` file next to each archive |
 | Manifests | `MANIFEST.txt` (per-file SHA-256) and `PACKAGE.json` (variant and counts) |
 | Documentation | `README.md`, `docs/HOWTO.md`, `docs/DEPLOYMENT.md`, `docs/DEPLOYMENT.zh-CN.md`, `docs/DEPLOYMENT.zh-HK.md`, `docs/DEVELOPMENT.md`, `docs/RELEASE.md` |

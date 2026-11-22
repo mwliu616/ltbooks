@@ -48,9 +48,9 @@ On a new Debian 12 or Ubuntu 22.04+ server with internet access, run the automat
 installer as root:
 
 ```bash
-sha256sum -c LtBooks-Ver1.0-auto-clean-20261121.tar.gz.sha256
-tar -xzf LtBooks-Ver1.0-auto-clean-20261121.tar.gz
-cd LtBooks-Ver1.0-auto-clean-20261121
+sha256sum -c LtBooks-Ver1.0-auto-clean-20261122.tar.gz.sha256
+tar -xzf LtBooks-Ver1.0-auto-clean-20261122.tar.gz
+cd LtBooks-Ver1.0-auto-clean-20261122
 sudo ./install.sh
 ```
 
@@ -64,8 +64,8 @@ For hosting panels and internal networks, use the manual package and `install-ma
 instead. Both packages are clean: an empty schema, one company record, 108 accounts and
 12 tax rates, with no business data.
 
-- Automatic install: `LtBooks-Ver1.0-auto-clean-20261121.tar.gz`
-- Manual install: `LtBooks-Ver1.0-manual-clean-20261121.zip`
+- Automatic install: `LtBooks-Ver1.0-auto-clean-20261122.tar.gz`
+- Manual install: `LtBooks-Ver1.0-manual-clean-20261122.zip`
 - Release page: https://github.com/mwliu616/ltbooks/releases/tag/v1.0.0
 
 ## Repository layout
