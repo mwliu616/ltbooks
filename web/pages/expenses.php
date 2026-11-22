@@ -16,13 +16,11 @@ $totalRows = (int) ($r['data']['total'] ?? count($rows));
 $pageCount = $per === 0 ? 1 : max(1, (int) ceil($totalRows / max(1, $per)));
 if ($page > $pageCount) { $page = $pageCount; }
 $role = isset($role) ? $role : 'accountant';
-$bar = '<form method="get" class="list-bar" style="border:none;border-bottom:1px solid #EEF2F7">'
+$bar = '<form method="get" class="list-bar">'
     . '<input type="hidden" name="p" value="expenses">'
     . '<input type="text" name="q" value="' . e($kwPage) . '" placeholder="搜索费用号 / 用途 / 项目 / 备注" style="width:300px">'
     . '<button class="btn sm">搜索</button>'
     . ($kwPage !== '' ? '<a class="btn sm" href="?p=expenses">清除</a>' : '')
-    . '<span class="spacer"></span>'
-    . ($role !== 'auditor' ? '<a class="btn primary" href="?p=expense-new">+ 新建费用</a>' : '')
     . '</form>';
 ob_start();
 echo $bar;
@@ -45,5 +43,5 @@ if (!$rows) { echo empty_state(t('暂无费用。没有正式发票的小额支�
 </td></tr>
 <?php endforeach; ?>
 </tbody></table></div>
-<?php } echo card('费用列表', ob_get_clean(),
+<?php } echo card('', ob_get_clean(),
     pager_html($page, $per, $totalRows, ['p' => 'expenses', 'q' => $kwPage ?: null]), false); ?>

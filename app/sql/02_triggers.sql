@@ -161,8 +161,11 @@ END$$
 CREATE TRIGGER trg_bankline_before_delete BEFORE DELETE ON bank_lines
 FOR EACH ROW
 BEGIN
-  SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'IMMUTABLE: 银行流水禁止物理删除；重复项请标记 is_duplicate=1 或 match_status=excluded';
+  -- 已对账的流水永久保护；未对账的允许随「删除月结单导入」一起删除，便于重新导入
+  IF OLD.match_status = 'matched' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'IMMUTABLE: 已对账的银行流水禁止删除；请先撤销匹配';
+  END IF;
 END$$
 
 CREATE TRIGGER trg_invfile_before_delete BEFORE DELETE ON invoice_files

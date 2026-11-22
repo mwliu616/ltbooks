@@ -65,7 +65,7 @@ $msg = (string) ($_GET['msg'] ?? '');
       <button class="btn">套用到未匹配流水</button>
     </form>
     <?php if ($role !== 'auditor'): ?>
-      <a class="btn primary" href="?p=bank-rules&new=1">+ 新建规则</a>
+      <a class="btn primary" href="?p=bank-rules&new=1">＋ <?= e(t('新建规则')) ?></a>
     <?php endif; ?>
   </div>
   <?php endif; ?>
@@ -137,8 +137,8 @@ $msg = (string) ($_GET['msg'] ?? '');
         </select></div>
     </div>
     <div class="toolbar form-actions">
-      <button class="btn primary">保存规则</button>
       <a class="btn" href="?p=bank-rules">取消</a>
+      <button class="btn primary">保存规则</button>
       <span class="hint">套用后给的是建议清单，不会自动记账</span>
     </div>
   </form>

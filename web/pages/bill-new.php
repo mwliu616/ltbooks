@@ -530,8 +530,8 @@ if (!$vLines) { $vLines = [['code'=>'','desc'=>'','unit'=>'','qty'=>'1','price'=
           </select></div>
       </div>
       <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0">
-        <button class="btn primary">建立并返回填单</button>
         <button type="button" class="btn" onclick="document.getElementById('accCreatePanel').style.display='none'">取消</button>
+        <button class="btn primary">建立并返回填单</button>
         <span class="hint">新建后会自动选中该科目；变更写入审计日志</span>
       </div>
     </form>

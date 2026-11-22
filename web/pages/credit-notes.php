@@ -106,7 +106,7 @@ $revAccounts = array_values(array_filter($accounts, fn($a) => $a['category'] ===
     <?php if ($showNew): ?>
       <a class="btn" href="?p=credit-notes">返回列表</a>
     <?php elseif ($role !== 'auditor'): ?>
-      <a class="btn primary" href="?p=credit-notes&new=1">＋ 开贷记单</a>
+      <a class="btn primary" href="?p=credit-notes&new=1">＋ 新建贷记单</a>
     <?php endif; ?>
   </div>
 </div>
@@ -343,8 +343,7 @@ window._creditVendors = <?= json_encode(array_map(function ($v) {
 
 <?php if (!$showNew): ?>
 <section class="card">
-  <div class="card-head">
-    <h2>贷记单列表</h2>
+  <div class="list-bar">
     <span class="hint">过账后不可修改；要改只能再开一张反向贷记单</span>
   </div>
   <div class="table-wrap">

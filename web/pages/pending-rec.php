@@ -99,4 +99,4 @@ $badgeOf = function (string $s): string {
 <?php endforeach; ?>
 </tbody></table></div>
 <?php endif; ?>
-<?php echo card('复核队列', ob_get_clean(), '', false); ?>
+<?php echo card('', ob_get_clean(), '', false); ?>

@@ -121,7 +121,7 @@ $renderBackupList = static function (array $items, string $emptyText) use ($form
     ob_start();
     ?>
 <div class="table-wrap"><table>
-  <thead><tr><th><?= e(t('创建时间（UTC）')) ?></th><th><?= e(t('备份包')) ?></th><th><?= e(t('类型')) ?></th><th><?= e(t('大小')) ?></th><th><?= e(t('附件数')) ?></th><th><?= e(t('操作')) ?></th></tr></thead>
+  <thead><tr><th style="width:180px"><?= e(t('创建时间（UTC）')) ?></th><th><?= e(t('备份包')) ?></th><th style="width:120px"><?= e(t('类型')) ?></th><th style="width:100px"><?= e(t('大小')) ?></th><th style="width:84px"><?= e(t('附件数')) ?></th><th style="width:140px"><?= e(t('操作')) ?></th></tr></thead>
   <tbody>
   <?php if (!$items): ?><tr><td colspan="6"><?= empty_state($emptyText) ?></td></tr><?php endif; ?>
   <?php foreach ($items as $row): ?>
@@ -152,7 +152,7 @@ $renderBackupList = static function (array $items, string $emptyText) use ($form
 };
 ?>
 <style>
-.backup-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:start; }
+.backup-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:stretch; }
 .backup-times { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:10px 0; }
 .backup-times input { margin:0; width:100%; }
 .backup-options { display:flex; gap:18px; flex-wrap:wrap; margin:12px 0; }

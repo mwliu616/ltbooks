@@ -137,6 +137,7 @@ $NAV = [
 $SELF_HEAD = ['command', 'today', 'fast-new', 'quotes', 'credit-notes', 'recurring', 'guide',
               'recurring-invoices', 'recurring-bills',
               'bank-transactions', 'bank-rules', 'bank-transfer', 'opening-balances',
+              'accounts',
               'settle', 'period-close', 'report-center', 'agents',
               'party-view', 'doc-view', 'order-view', 'ai-close', 'journal-view'];
 
@@ -265,6 +266,33 @@ if (isset($PDF_KIND[$page])) {
     $pageActions = export_menu(
         export_lang_items('/reports/statements/pdf', ['from' => $f, 'to' => $t]),
         '下载完整报表包');
+} elseif ($role !== 'auditor') {
+    // 主操作统一放在页面标题右侧（与报价单、贷记单一致），筛选条里不再重复
+    $__newPages = [
+        'invoices'  => ['invoice-new', '新建发票'],
+        'bills'     => ['bill-new', '新建账单'],
+        'expenses'  => ['expense-new', '新建费用'],
+        'customers' => ['customers&new=1', '新建客户'],
+        'vendors'   => ['vendors&new=1', '新建供应商'],
+        'sales-orders'    => ['sales-orders&new=1', '新建销售订单'],
+        'purchase-orders' => ['purchase-orders&new=1', '新建采购订单'],
+        'journal'         => ['journal-new', '新建分录'],
+        'banks'           => ['banks&new=1', '新建银行账户'],
+        'bank-import'     => ['bank-import&upload=1', '导入月结单'],
+    ];
+    if (isset($__newPages[$page])) {
+        [$__newPage, $__newLabel] = $__newPages[$page];
+        $pageActions = '<a class="btn primary" href="?p=' . $__newPage . '">＋ ' . e(t($__newLabel)) . '</a>';
+        // 已经在新建/编辑态时不再重复显示「新建」主按钮
+        if (in_array($page, ['sales-orders', 'purchase-orders', 'customers', 'vendors'], true)
+            && (($_GET['new'] ?? '') === '1' || (int) ($_GET['edit'] ?? 0) > 0)) {
+            $pageActions = '';
+        } elseif ($page === 'banks' && ($_GET['new'] ?? '') === '1') {
+            $pageActions = '';
+        } elseif ($page === 'bank-import' && ($_GET['upload'] ?? '') === '1') {
+            $pageActions = '';
+        }
+    }
 }
 
 // ---------- 表单动作 ----------
@@ -427,6 +455,22 @@ $title = $PAGES[$page][0];
 $_lg = lang();
 if ($_lg !== 'zh_cn' && isset($PAGE_TITLE_I18N[$page][$_lg])) {
     $title = $PAGE_TITLE_I18N[$page][$_lg];
+}
+
+// 新建 / 编辑态用独立标题，和列表页区分（与报价单、贷记单一致）
+$__formTitles = [
+    'customers'       => ['新建客户', '编辑客户'],
+    'vendors'         => ['新建供应商', '编辑供应商'],
+    'sales-orders'    => ['新建销售订单', '编辑销售订单'],
+    'purchase-orders' => ['新建采购订单', '编辑采购订单'],
+    'banks'           => ['新建银行账户', '编辑银行账户'],
+];
+if (isset($__formTitles[$page])) {
+    if ((string) ($_GET['new'] ?? '') === '1') {
+        $title = t($__formTitles[$page][0]);
+    } elseif ((int) ($_GET['edit'] ?? 0) > 0) {
+        $title = t($__formTitles[$page][1]);
+    }
 }
 
 function nav_link(string $p, string $label, string $cur, bool $isAuditor, string $role): string

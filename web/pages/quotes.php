@@ -161,6 +161,11 @@ $customers = $custR['ok'] ? ($custR['data']['customers'] ?? []) : [];
     <h1 class="page-title"><?= e($showNew ? t($editing ? '编辑报价单草稿' : '新建报价单') : t('报价单')) ?></h1>
     <div class="page-sub">报价不进总账；客户接受后转成销售发票才确认收入</div>
   </div>
+  <?php if (!$showNew && $role !== 'auditor'): ?>
+  <div class="page-actions">
+    <a class="btn primary" href="?p=quotes&new=1">＋ 新建报价单</a>
+  </div>
+  <?php endif; ?>
 </div>
 
 <?php if ($errMsg !== null): ?><?= errbox($errMsg) ?><?php endif; ?>
@@ -387,7 +392,7 @@ $customers = $custR['ok'] ? ($custR['data']['customers'] ?? []) : [];
 
 <?php if (!$showNew): ?>
 <section class="card">
-  <form method="get" class="list-bar" style="border:none;border-bottom:1px solid #EEF2F7">
+  <form method="get" class="list-bar">
     <input type="hidden" name="p" value="quotes">
     <select name="view" onchange="this.form.submit()">
       <?php foreach (['all' => t('全部报价单'), 'draft' => '草稿', 'sent' => '已发出',
@@ -398,10 +403,6 @@ $customers = $custR['ok'] ? ($custR['data']['customers'] ?? []) : [];
     <input type="text" name="q" value="<?= e($kw) ?>" placeholder="搜索报价号 / 客户 / 主题 / 参考号" style="width:260px">
     <button class="btn sm">搜索</button>
     <?php if ($kw !== ''): ?><a class="btn sm" href="?p=quotes">清除</a><?php endif; ?>
-    <span class="spacer"></span>
-    <?php if ($role !== 'auditor'): ?>
-      <a class="btn primary" href="?p=quotes&new=1">+ 新建报价单</a>
-    <?php endif; ?>
   </form>
   <div class="table-wrap">
     <table>

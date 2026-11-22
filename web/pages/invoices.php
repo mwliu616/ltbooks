@@ -23,7 +23,8 @@ $__ccys = [];
 foreach ($list as $x) { $__ccys[(string) ($x['currency'] ?? '')] = true; }
 $__oneCcy = count($__ccys) === 1 ? (string) array_key_first($__ccys) : '';
 ?>
-<form method="get" class="list-bar" style="border:1px solid var(--c-border);border-radius:10px;margin-bottom:14px">
+<?php ob_start(); ?>
+<form method="get" class="list-bar">
   <input type="hidden" name="p" value="invoices">
   <select name="view" onchange="this.form.submit()">
     <?php foreach (['all' => t('全部发票'), 'draft' => t('草稿'), 'posted' => t('已记账')] as $k => $lab): ?>
@@ -33,13 +34,8 @@ $__oneCcy = count($__ccys) === 1 ? (string) array_key_first($__ccys) : '';
   <input type="text" name="q" value="<?= e($kwPage ?? '') ?>" placeholder="搜索发票号 / 客户" style="width:260px">
   <button class="btn sm">搜索</button>
   <?php if ($kwPage !== ''): ?><a class="btn sm" href="?p=invoices">清除</a><?php endif; ?>
-  <span class="spacer"></span>
-  <?php if ($role !== 'auditor'): ?>
-    <a class="btn primary" href="?p=invoice-new">+ 新建发票</a>
-  <?php endif; ?>
 </form>
 
-<?php ob_start(); ?>
 <?php if (!$list): ?>
   <?= empty_state('没有符合条件的发票') ?>
 <?php else: ?>
@@ -100,7 +96,7 @@ $__oneCcy = count($__ccys) === 1 ? (string) array_key_first($__ccys) : '';
 </table></div>
 <?php endif; ?>
 <?php
-echo card('发票列表', ob_get_clean(),
+echo card('', ob_get_clean(),
     pager_html($page, $per, $totalRows,
         ['p' => 'invoices', 'view' => $view === 'all' ? null : $view, 'q' => $kwPage ?: null]), false);
 ?>

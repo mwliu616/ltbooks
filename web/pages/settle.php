@@ -66,8 +66,8 @@ foreach ($made as $x) { if ((string) $x['currency'] === 'HKD') { $madeTotal += (
     </div>
   </div>
   <div class="page-actions">
-    <a class="btn" href="?p=payments&direction=made">登记付款</a>
-    <a class="btn primary" href="?p=receipts">登记收款</a>
+    <a class="btn" href="?p=payments&direction=made">＋ 登记付款</a>
+    <a class="btn" href="?p=receipts">＋ 登记收款</a>
   </div>
 </div>
 

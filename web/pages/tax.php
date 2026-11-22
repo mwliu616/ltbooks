@@ -101,7 +101,6 @@ $tax = $d['taxPayable'];
   </div>
 <?php endif; ?>
 
-<?= help_html('tax') ?>
 <div class="metrics metrics-sm">
   <div class="metric c3">
     <div class="lbl">应评税利润</div>

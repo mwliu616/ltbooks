@@ -127,25 +127,21 @@ $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
 ?>
 <?php if (!$showNew): ?>
 <div class="card">
-  <div class="card-head">
-    <h2 class="card-title"><?= e($isSales ? t('销售订单') : t('采购订单')) ?></h2>
-    <div class="toolbar" style="padding:0;border:none;background:none;margin:0;flex-wrap:wrap">
+  <div class="list-bar">
+    <div class="tabs" style="border:0;gap:16px;padding:0">
       <?php foreach (['all' => t('全部'), 'draft' => status_label('draft'), 'open' => status_label('ordered'), 'partial' => status_label('partial'),
                       'fulfilled' => status_label('fulfilled'), 'closed' => status_label('closed'),
                       'cancelled' => status_label('cancelled')] as $k => $lab): ?>
         <a class="tab<?= $view === $k ? ' active' : '' ?>"
            href="?p=<?= e($pageKey) ?>&view=<?= e($k) ?>"><?= e($lab) ?></a>
       <?php endforeach; ?>
-      <form method="get" style="display:flex;gap:6px;margin-left:8px">
-        <input type="hidden" name="p" value="<?= e($pageKey) ?>">
-        <?php if ($view !== 'all'): ?><input type="hidden" name="view" value="<?= e($view) ?>"><?php endif; ?>
-        <input type="text" name="q" value="<?= e($kw) ?>" placeholder="<?= e(t('搜索订单号 / 往来单位')) ?>" style="width:200px">
-        <button class="btn sm"><?= e(t('搜索')) ?></button>
-      </form>
-      <?php if ($role !== 'auditor'): ?>
-        <a class="btn primary" href="?p=<?= e($pageKey) ?>&new=1">＋ <?= e($isSales ? t('新建销售订单') : t('新建采购订单')) ?></a>
-      <?php endif; ?>
     </div>
+    <form method="get" style="display:flex;gap:6px;margin-left:auto">
+      <input type="hidden" name="p" value="<?= e($pageKey) ?>">
+      <?php if ($view !== 'all'): ?><input type="hidden" name="view" value="<?= e($view) ?>"><?php endif; ?>
+      <input type="text" name="q" value="<?= e($kw) ?>" placeholder="<?= e(t('搜索订单号 / 往来单位')) ?>" style="width:200px">
+      <button class="btn sm"><?= e(t('搜索')) ?></button>
+    </form>
   </div>
   <?php if (!$rows): ?>
     <div class="card-body"><?= empty_state($isSales ? '还没有销售订单' : '还没有采购订单') ?></div>

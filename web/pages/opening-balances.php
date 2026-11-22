@@ -19,7 +19,7 @@ $cr = array_sum(array_map(fn($x) => max(0, -(float) $x['balance']), $rows));
     <div class="page-sub">借方 <?= money($dr, 'HKD') ?> · 贷方 <?= money($cr, 'HKD') ?> · 差 <?= money($dr - $cr, 'HKD') ?></div>
   </div>
   <div class="page-actions">
-    <a class="btn" href="?p=journal-new">手工补一笔</a>
+    <a class="btn primary" href="?p=journal-new">＋ 手工补一笔</a>
   </div>
 </div>
 

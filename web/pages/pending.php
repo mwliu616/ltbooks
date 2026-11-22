@@ -9,7 +9,7 @@ $r = api_get('/pending-review');
 if (!$r['ok']) { echo errbox((string) $r['error']); return; }
 $rows = $r['data']['reviews'] ?? [];
 $role = isset($role) ? $role : 'accountant';  // 来自服务端会话
-if (!$rows) { echo card('待复核', empty_state('没有待办')); return; }
+if (!$rows) { echo card('', empty_state('没有待办')); return; }
 ob_start(); ?>
 <?php
   $pTotal = count($rows);
@@ -58,4 +58,4 @@ ob_start(); ?>
 <?php endforeach; ?>
 </tbody></table></div>
 <?= pager_html($page, $per, $pTotal, ['p' => 'pending'], 'pending') ?>
-<?php echo card('待复核（' . count($rows) . '）', ob_get_clean(), '', false);
+<?php echo card('', ob_get_clean(), '', false);

@@ -18,15 +18,11 @@ $pageCount = $per === 0 ? 1 : max(1, (int) ceil($totalRows / max(1, $per)));
 if ($page > $pageCount) { $page = $pageCount; }
 
 ob_start(); ?>
-<form method="get" class="list-bar" style="border:1px solid var(--c-border);border-radius:10px;margin-bottom:14px">
+<form method="get" class="list-bar">
   <input type="hidden" name="p" value="bills">
   <input type="text" name="q" value="<?= e($kwPage) ?>" placeholder="搜索单号 / 供应商 / 对方发票号" style="width:300px">
   <button class="btn sm">搜索</button>
   <?php if ($kwPage !== ''): ?><a class="btn sm" href="?p=bills">清除</a><?php endif; ?>
-  <span class="spacer"></span>
-  <?php if (($role ?? '') !== 'auditor'): ?>
-    <a class="btn primary" href="?p=bill-new">+ <?= e(t('新建账单')) ?></a>
-  <?php endif; ?>
 </form>
 
 <?php if (!$rows): ?>
@@ -86,5 +82,5 @@ $rowCcy = (string) $x['currency'];
 <?php endforeach; ?>
 </tbody></table></div>
 <?php endif; ?>
-<?php echo card(t('账单（供应商开给我 — 支出）'), ob_get_clean(),
+<?php echo card('', ob_get_clean(),
     pager_html($page, $per, $totalRows, ['p' => 'bills', 'q' => $kwPage ?: null]), false); ?>

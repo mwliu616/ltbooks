@@ -129,6 +129,18 @@ function render_node(string $code, array $byCode, array $children, int $depth, s
     return $h;
 }
 ?>
+<div class="page-head">
+  <div>
+    <h1 class="page-title"><?= e(t('会计科目')) ?></h1>
+    <div class="page-sub"><?= e(t('会计')) ?></div>
+  </div>
+  <?php if ($role === 'admin'): ?>
+  <div class="page-actions">
+    <button type="button" class="btn primary" data-acc-add>＋ <?= e(t('新建科目')) ?></button>
+  </div>
+  <?php endif; ?>
+</div>
+<?= help_html('accounts') ?>
 <?php ob_start(); ?>
 <div class="accbar">
   <div class="accstats">
@@ -140,9 +152,6 @@ function render_node(string $code, array $byCode, array $children, int $depth, s
     <a class="btn sm" href="?p=accounts&show_inactive=<?= $showInactive ? '0' : '1' ?>">
       <?= $showInactive ? '只看启用科目' : '显示停用科目（' . $inactiveCount . '）' ?>
     </a>
-    <?php if ($role === 'admin'): ?>
-      <button type="button" class="btn sm primary" data-acc-add>＋ 新增科目</button>
-    <?php endif; ?>
   </div>
 </div>
 <?php if ($role === 'admin'): ?>
@@ -182,7 +191,7 @@ function render_node(string $code, array $byCode, array $children, int $depth, s
   已发生分录的科目不允许停用；有启用中子科目的父科目须先停用子科目。
   停用只影响新分录的可选范围，不影响历史账。
 </div>
-<?php echo card('会计科目表（HKFRS 分类）', ob_get_clean(), '', false); ?>
+<?php echo card('', ob_get_clean(), '', false); ?>
 
 <style>
 .accbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--c-border)}
@@ -198,9 +207,9 @@ function render_node(string $code, array $byCode, array $children, int $depth, s
 .accform input,.accform select{height:36px;font-size:var(--f-sm);padding:0 10px;margin:0;min-width:0}
 .accform .btn{height:34px;font-size:var(--f-sm)}
 .acc-table{max-height:68vh;overflow:auto}
-.acc-table table{font-size:12.5px}
-.acc-table thead th{height:30px;padding:0 10px;font-size:var(--f-2xs);white-space:nowrap}
-.acc-table tbody td{height:34px;padding:0 10px}
+.acc-table table{font-size:13px}
+.acc-table thead th{height:38px;padding:0 12px;font-size:11.5px;white-space:nowrap}
+.acc-table tbody td{height:40px;padding:0 12px}
 .acc-table tbody tr.acc-group td{height:28px;background:var(--c-surface-alt);
   font-size:var(--f-xs);font-weight:600;color:var(--c-text);white-space:nowrap;
   border-top:1px solid var(--c-border);border-bottom:1px solid var(--c-border)}
@@ -210,7 +219,7 @@ function render_node(string $code, array $byCode, array $children, int $depth, s
 .acc-table th.acc-actions-h,.acc-table tbody td.acc-actions{text-align:right}
 .acc-table tbody td.acc-actions{white-space:nowrap}
 .acc-table td:first-child{padding-left:10px}
-.acc-table td .btn.sm{height:22px;padding:0 8px;font-size:var(--f-2xs);line-height:20px}
+.acc-table td .btn.sm{height:28px;padding:0 10px;font-size:12px;line-height:26px}
 .acc-note{padding:6px 12px;font-size:var(--f-2xs);color:var(--c-text-3);line-height:1.6}
 @media (max-width:900px){.accform{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>

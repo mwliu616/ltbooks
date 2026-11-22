@@ -59,9 +59,6 @@ ob_start(); ?>
     <?php if ($rows): ?>
       <?= voucher_menu(['ids' => $__ids], t('打印本页凭证') . ' (' . count($rows) . ')', 'btn sm') ?>
     <?php endif; ?>
-    <?php if ($role !== 'auditor'): ?>
-      <a class="btn sm primary" href="?p=journal-new">＋ <?= e(t('手工分录')) ?></a>
-    <?php endif; ?>
   </div>
 </div>
 <?php if (!$rows): ?>
@@ -103,7 +100,7 @@ ob_start(); ?>
 <?php endforeach; ?>
 </tbody></table></div>
 <?php endif; ?>
-<?php echo card('日记账', ob_get_clean(),
+<?php echo card('', ob_get_clean(),
     pager_html($page, $per, $totalRows, ['p' => 'journal', 'q' => $kwPage ?: null]), false); ?>
 
 <style>

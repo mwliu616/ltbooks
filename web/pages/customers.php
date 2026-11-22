@@ -82,7 +82,7 @@ if (!$rows) { echo empty_state('暂无客户'); } else { ?>
 </tbody></table></div>
 <?php }
 // 列表版式：筛选与搜索单独一行，分页放在卡片底部
-$listBar = '<form method="get" class="list-bar" style="border-bottom:none;padding:0 0 12px">'
+$listBar = '<form method="get" class="list-bar">'
     . '<input type="hidden" name="p" value="customers">'
     . '<select name="st" onchange="this.form.submit()">'
     . '<option value="">' . e(t('全部客户')) . '</option>'
@@ -92,10 +92,8 @@ $listBar = '<form method="get" class="list-bar" style="border-bottom:none;paddin
     . '<input type="text" name="q" value="' . e($kwPage) . '" placeholder="搜索编码 / 名称 / 联系人 / 电话" style="width:280px">'
     . '<button class="btn sm">搜索</button>'
     . ($kwPage !== '' ? '<a class="btn sm" href="?p=customers">清除</a>' : '')
-    . '<span class="spacer"></span>'
-    . ($role !== 'auditor' ? '<a class="btn primary" href="?p=customers&new=1">+ 新建客户</a>' : '')
     . '</form>';
-echo card('客户', '<div style="padding:0 16px">' . $listBar . '</div>' . ob_get_clean(),
+echo card('', $listBar . ob_get_clean(),
     pager_html($page, $per, $totalRows, ['p' => 'customers', 'q' => $kwPage ?: null]), false);
 endif;
 
@@ -144,7 +142,7 @@ ob_start(); ?>
 
   <div class="field" style="margin-top:14px"><label class="f">备注</label>
     <input type="text" name="notes" placeholder="其他需要记录的信息" value="<?= e((string) ($E['notes'] ?? '')) ?>"></div>
-  <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0"><button class="btn primary"><?= e($E ? t('保存修改') : t('新增客户')) ?></button><a class="btn" href="?p=customers"><?= e(t('取消')) ?></a></div>
+  <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0"><a class="btn" href="?p=customers"><?= e(t('取消')) ?></a><button class="btn primary"><?= e($E ? t('保存修改') : t('新建客户')) ?></button></div>
 </form>
 <script>
 (function () {
@@ -168,6 +166,6 @@ ob_start(); ?>
 })();
 </script>
 <?php echo str_replace('<section class="card">', '<section class="card" id="new">',
-    card($E ? t('编辑客户') : t('新增客户'), ob_get_clean(),
+    card($E ? t('编辑客户') : t('客户信息'), ob_get_clean(),
         '<a class="btn sm" href="?p=customers">' . e(t('返回列表')) . '</a>'));
 endif; ?>

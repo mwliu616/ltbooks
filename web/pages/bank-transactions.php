@@ -83,7 +83,7 @@ $out = (float) ($r['data']['amountOut'] ?? 0);
   </tbody>
 </table></div>
 <?php endif; ?>
-<?php echo card('流水', ob_get_clean(),
+<?php echo card('', ob_get_clean(),
     pager_html($page, $per, $totalRows, [
         'p' => 'bank-transactions', 'account' => $accId ?: null, 'status' => $st !== 'all' ? $st : null,
     ]), false); ?>

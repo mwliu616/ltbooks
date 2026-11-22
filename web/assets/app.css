@@ -159,7 +159,7 @@
   border-radius:var(--r-md);padding:var(--s-3) var(--s-4);margin-bottom:var(--s-4);font-size:var(--f-sm)}.errbox b{display:block;margin-bottom:2px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;
   padding:0 var(--s-3);border-radius:var(--r-md);border:1px solid var(--c-border-strong);
   background:var(--c-surface);color:var(--c-text);font-family:inherit;font-size:var(--f-sm);
-  font-weight:400;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s}.btn:hover{background:var(--c-surface-alt);text-decoration:none}.btn:active{transform:translateY(.5px)}.btn.primary{background:var(--c-primary);border-color:var(--c-primary);color:#fff;font-weight:400;box-shadow:var(--sh-sm)}.btn.primary:hover{background:var(--c-primary-hover);border-color:var(--c-primary-hover)}.btn.accent{background:var(--c-accent);border-color:var(--c-accent);color:#fff;font-weight:400}.btn.sm{height:28px;padding:0 10px;font-size:var(--f-xs)}.btn.ghost{border-color:transparent;background:transparent;color:var(--c-text-2)}.btn.ghost:hover{background:var(--c-surface-alt);color:var(--c-text)}.btn[disabled],.btn.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}.toolbar{display:flex;gap:var(--s-2);align-items:center;margin-bottom:var(--s-3);flex-wrap:wrap}.toolbar .grow{flex:1}.tabs{display:inline-flex;gap:2px;padding:3px;background:var(--c-surface-alt);
+  font-weight:400;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s}.btn:hover{background:var(--c-surface-alt);text-decoration:none}.btn:active{transform:translateY(.5px)}.btn.primary{background:var(--c-primary);border-color:var(--c-primary);color:#fff;font-weight:400;box-shadow:var(--sh-sm)}.btn.primary:hover{background:var(--c-primary-hover);border-color:var(--c-primary-hover)}.btn.danger{background:var(--c-danger);border-color:var(--c-danger);color:#fff;font-weight:400}.btn.danger:hover{background:#A81F16;border-color:#A81F16}.btn.accent{background:var(--c-accent);border-color:var(--c-accent);color:#fff;font-weight:400}.btn.sm{height:28px;padding:0 10px;font-size:var(--f-xs)}.btn.ghost{border-color:transparent;background:transparent;color:var(--c-text-2)}.btn.ghost:hover{background:var(--c-surface-alt);color:var(--c-text)}.btn[disabled],.btn.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}.toolbar{display:flex;gap:var(--s-2);align-items:center;margin-bottom:var(--s-3);flex-wrap:wrap}.toolbar .grow{flex:1}.tabs{display:inline-flex;gap:2px;padding:3px;background:var(--c-surface-alt);
   border-radius:var(--r-md);border:1px solid var(--c-border)}.tab{height:28px;padding:0 var(--s-3);border-radius:var(--r-sm);font-size:var(--f-xs);
   color:var(--c-text-2);display:inline-flex;align-items:center}.tab:hover{text-decoration:none;color:var(--c-text)}.tab.active{background:var(--c-surface);color:var(--c-primary);font-weight:400;box-shadow:var(--sh-sm)}label.f{display:block;font-size:var(--f-xs);font-weight:400;color:var(--c-text-2);margin-bottom:5px}input[type=text],input[type=search],input[type=email],input[type=date],input[type=number],input[type=month],input[type=time],
 input[type=password],input[type=file],select,textarea{
@@ -1715,3 +1715,186 @@ body.ai-page .aiw .composer-foot { max-width: 860px; margin: 6px auto 0; }
   .form-actions > .grow, .card-actions > .grow { flex: 1 1 auto; }
   .card-actions { justify-content: flex-end; }
 }
+
+/* ============================================================================
+   界面统一层 v2（2026-11-22）
+   目标：所有功能页共用同一套页面骨架与列表/表单节奏，参考 Zoho Books：
+   页面标题 + 右侧主操作 · 筛选条 · 白卡片 · 紧凑表格 · 蓝色只给主操作。
+   本段只做覆盖，不改动业务规则；新页面直接套用现有 class 即可。
+   ============================================================================ */
+:root{
+  --ui-border:#E4E8EF;
+  --ui-head:#F8FAFC;
+  --ui-hover:#F9FAFB;
+  --ui-radius:8px;
+}
+
+/* ---- 1. 页面骨架 ---- */
+.main{padding:22px 26px 44px}
+.page-head{align-items:flex-start;gap:16px;margin-bottom:14px}
+.page-title{font-size:22px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.page-sub{font-size:13px;color:var(--c-text-2);margin-top:3px;line-height:1.5}
+.page-head .page-actions,
+.page-head > div:last-child{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.page-head .btn{height:34px}
+
+/* ---- 2. 筛选条 / 工具条：统一成同一张白卡 ---- */
+.list-bar,
+.main > .toolbar,
+.main > form.toolbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--c-surface)!important;
+  border:1px solid var(--ui-border)!important;
+  border-radius:var(--ui-radius)!important;
+  padding:10px 14px!important;
+  margin:0 0 12px!important;
+  min-height:54px;
+  box-shadow:none;
+}
+.list-bar input[type=text],.list-bar input[type=search],.list-bar select,
+.main > .toolbar input[type=text],.main > .toolbar input[type=search],.main > .toolbar select{
+  height:34px;
+}
+.list-bar .btn,.main > .toolbar .btn{height:32px}
+.list-bar .btn.primary,.main > .toolbar .btn.primary{height:34px}
+.card .list-bar{
+  border:0!important;border-radius:0!important;background:transparent!important;
+  padding:12px 16px!important;margin:0!important;min-height:0;
+  border-bottom:1px solid #EEF2F6!important;
+}
+.card .list-bar .btn{height:32px}
+
+/* 报表期间条与筛选条同一视觉 */
+.period-wrap{margin-bottom:12px}
+.period-bar{
+  background:var(--c-surface);border:1px solid var(--ui-border);border-radius:var(--ui-radius);
+  padding:10px 14px;min-height:54px;
+}
+
+/* ---- 3. 卡片 ---- */
+.card{
+  border-color:var(--ui-border);border-radius:var(--ui-radius);
+  box-shadow:0 1px 2px rgba(16,24,40,.04);
+  margin-bottom:14px;
+}
+.card-head{padding:12px 16px;background:var(--c-surface);border-bottom:1px solid var(--ui-border)}
+.card-head h2{font-size:14px;font-weight:600;letter-spacing:0}
+.card-body{padding:16px}
+
+/* ---- 4. 列表表格：全站同一密度 ---- */
+.card .table-wrap table{font-size:13px}
+.card .table-wrap thead th{
+  height:38px;padding:0 12px!important;
+  background:var(--ui-head);color:#667085;
+  font-size:11.5px;font-weight:600;letter-spacing:.02em;text-transform:none;
+  border-bottom:1px solid #EDF0F4;
+}
+.card .table-wrap tbody td{
+  height:42px;padding:6px 12px!important;
+  font-size:13px;line-height:1.45;
+  border-bottom:1px solid #F0F2F5;
+}
+.card .table-wrap tbody tr:hover td{background:var(--ui-hover)}
+.card .table-wrap tbody td a{font-weight:500}
+.num{font-family:var(--font);font-variant-numeric:tabular-nums;letter-spacing:0}
+
+/* 行内小操作：统一成紧凑文字按钮 */
+.jr-actions .btn,.pack-actions .btn{height:28px;padding:0 8px;font-size:12px}
+
+/* ---- 5. 指标卡 ---- */
+.metric{
+  border-radius:var(--ui-radius);padding:16px 18px;box-shadow:none;
+}
+.metric::before{display:none}
+.metric .lbl{font-size:12px;font-weight:500;color:#667085;letter-spacing:0}
+.metric .val{font-size:24px;font-weight:600;letter-spacing:-.01em;margin-top:6px;line-height:1.2}
+.metric .sub{font-size:12px;color:var(--c-text-3);margin-top:4px}
+
+/* ---- 6. 页签：下划线式，主色只给当前项 ---- */
+.tabs{
+  display:flex;gap:20px;padding:0;background:transparent;
+  border:0;border-bottom:1px solid var(--ui-border);border-radius:0;
+}
+.tab{
+  height:38px;padding:0 2px;border-radius:0;background:transparent!important;
+  box-shadow:none!important;font-size:13px;color:#667085;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+}
+.tab:hover{color:var(--c-text);text-decoration:none}
+.tab.active{
+  color:var(--c-primary);font-weight:600;
+  border-bottom-color:var(--c-primary);background:transparent!important;box-shadow:none!important;
+}
+
+/* ---- 7. 帮助条 ---- */
+.page-help{
+  border:1px solid var(--ui-border);border-radius:var(--ui-radius);
+  background:var(--c-surface);margin-bottom:14px;
+}
+.page-help summary{padding:9px 14px;font-size:12.5px}
+.page-help .ph-mark{
+  width:18px;height:18px;border-radius:50%;background:#EEF2F6;color:#475467;
+  font-size:11px;
+}
+
+/* ---- 8. 分页 / 空状态 ---- */
+.pager{padding:10px 16px;font-size:12.5px}
+.empty,.empty-state{
+  padding:44px 16px!important;text-align:center;
+  color:#667085;font-size:13px;line-height:1.7;
+}
+
+/* ---- 9. 按钮与表单统一 ---- */
+.btn{font-weight:500;border-radius:6px}
+.btn.primary{font-weight:500}
+.btn.sm{height:30px;padding:0 10px;font-size:12.5px}
+label.f{font-size:12.5px;font-weight:500;color:#344054;margin-bottom:6px}
+.form-section-title{
+  font-size:14px;font-weight:600;color:var(--c-text);
+  margin:22px 0 12px;padding:0 0 8px;border-bottom:1px solid var(--ui-border);
+  display:flex;align-items:center;gap:8px;
+}
+.form-section-title::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--c-primary)}
+.form-actions{background:transparent}
+.banner{border-radius:var(--ui-radius);box-shadow:none}
+
+/* ---- 10. 响应式 ---- */
+@media (max-width:860px){
+  .main{padding:16px 14px 36px}
+  .page-title{font-size:19px}
+  .page-head{gap:10px}
+  .page-head > div:last-child,.page-head .page-actions{width:100%}
+  .page-head .btn{flex:0 1 auto}
+  .tabs{gap:14px}
+}
+
+/* ---- 11. 筛选条内的控件宽度：下拉不再撑满整行，页签与按钮保持同一行 ---- */
+.list-bar > select,
+.main > .toolbar > select,
+.main > form.toolbar > select{width:auto;min-width:170px;flex:0 0 auto}
+.list-bar > input[type=text],
+.list-bar > input[type=search],
+.main > .toolbar > input[type=text],
+.main > .toolbar > input[type=search]{width:auto;flex:0 1 280px;min-width:180px}
+.list-bar > .btn,
+.main > .toolbar > .btn{flex:0 0 auto}
+.list-bar > .tab,
+.main > .toolbar > .tab{align-self:flex-end}
+
+/* ---- 12. 日记账工具条与卡片筛选行同节奏 ---- */
+.card .jrbar{padding:12px 16px;border-bottom:1px solid #EEF2F6}
+
+/* ---- 13. 仪表盘：卡片与标题和全站同一规格 ---- */
+.db-card{border-color:var(--ui-border)!important;border-radius:var(--ui-radius)!important;box-shadow:0 1px 2px rgba(16,24,40,.04)!important}
+.db-card-head{padding:12px 16px!important;border-bottom:1px solid var(--ui-border)!important}
+.db-card-head h2,.db-card-head h3{font-size:14px!important;font-weight:600!important;letter-spacing:0!important}
+.db-eyebrow{font-size:11.5px!important;color:#667085!important;letter-spacing:.02em!important}
+.db-side-title{font-size:12px!important;font-weight:600!important;color:#475467!important}
+.db-btn{height:34px!important;border-radius:6px!important;font-size:13px!important;font-weight:500!important}
+.db-metric .val,.db-metric-val,.db-hero-value{font-variant-numeric:tabular-nums}
+
+/* ---- 14. 状态胶囊不换行；备份卡片同高 ---- */
+.pill,.tag,.status-chip,.status-pill{white-space:nowrap}
+.backup-grid{align-items:stretch!important}
+.backup-grid > .card{display:flex;flex-direction:column}
+.backup-grid > .card > .card-body{flex:1 1 auto}

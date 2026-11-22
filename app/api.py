@@ -4498,7 +4498,12 @@ def bank_statement_imports():
                si.file_name, si.file_format, si.sha256_hash,
                si.period_start, si.period_end, si.line_count,
                si.status, si.imported_by, si.imported_at,
-               ba.name AS account_name
+               ba.name AS account_name,
+               (SELECT COUNT(*) FROM bank_lines bl
+                 WHERE bl.statement_import_batch_id = si.batch_id) AS imported_lines,
+               (SELECT COUNT(*) FROM bank_lines bl
+                 WHERE bl.statement_import_batch_id = si.batch_id
+                   AND bl.match_status = 'matched') AS matched_lines
           FROM statement_imports si
           JOIN bank_accounts ba ON ba.account_id = si.bank_account_id
          WHERE si.entity_id = %s
@@ -4515,6 +4520,85 @@ def bank_statement_imports():
         d["has_file"] = (base / (str(d["sha256_hash"]) + ext)).is_file()
         items.append(d)
     return J({"imports": items})
+
+
+@app.delete("/bank/statement-imports/<int:batch_id>")
+def bank_statement_delete(batch_id: int):
+    """删除一次月结单导入；已对账（match_status=matched）的流水受保护，整批拒绝删除。"""
+    require_writer()
+    e = entity_or_404()
+    p = request.get_json(silent=True) or {}
+    actor = str(p.get("actor") or "system")
+
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT * FROM statement_imports
+                            WHERE batch_id=%s AND entity_id=%s FOR UPDATE""",
+                        (batch_id, e["entity_id"]))
+            si = cur.fetchone()
+            if not si:
+                raise ValueError("月结单不存在或已删除")
+
+            cur.execute("""SELECT COUNT(*) AS total,
+                                  COALESCE(SUM(match_status='matched'), 0) AS matched
+                             FROM bank_lines
+                            WHERE statement_import_batch_id=%s AND entity_id=%s""",
+                        (batch_id, e["entity_id"]))
+            c = cur.fetchone() or {"total": 0, "matched": 0}
+            if int(c["matched"] or 0) > 0:
+                raise ValueError(
+                    f"该月结单已有 {int(c['matched'])} 条流水完成对账，不能删除；"
+                    "请先在银行流水页撤销匹配后再删除")
+
+            cur.execute("""DELETE FROM bank_lines
+                            WHERE statement_import_batch_id=%s AND entity_id=%s
+                              AND match_status <> 'matched'""",
+                        (batch_id, e["entity_id"]))
+            removed = cur.rowcount
+            cur.execute("DELETE FROM statement_imports WHERE batch_id=%s AND entity_id=%s",
+                        (batch_id, e["entity_id"]))
+
+            # 删除的若是期间最早的一份，接着用下一份的期初，避免账户余额停留在已删对账单上
+            cur.execute("""SELECT opening_balance FROM statement_imports
+                            WHERE bank_account_id=%s
+                            ORDER BY period_start ASC, batch_id ASC LIMIT 1""",
+                        (si["bank_account_id"],))
+            nxt = cur.fetchone()
+            if nxt and nxt["opening_balance"] is not None:
+                cur.execute("""UPDATE bank_accounts
+                                  SET opening_balance=%s, opening_balance_functional=%s
+                                WHERE account_id=%s""",
+                            (float(nxt["opening_balance"]), float(nxt["opening_balance"]),
+                             si["bank_account_id"]))
+            new_balance = recalc_bank_balance(conn, si["bank_account_id"])
+
+            append_audit(conn, {"entity_id": e["entity_id"], "actor": actor,
+                                "action": "bank.import.delete",
+                                "object_type": "statement_imports",
+                                "object_id": str(batch_id),
+                                "detail": {"accountId": si["bank_account_id"],
+                                           "file": si["file_name"],
+                                           "linesRemoved": int(removed),
+                                           "sha256": si["sha256_hash"],
+                                           "balanceAfter": new_balance}})
+
+    ext = "." + str(si.get("file_format") or "csv").lower().lstrip(".")
+    if ext not in (".csv", ".xlsx", ".xls", ".pdf"):
+        ext = ".bin"
+    # 同一 SHA 的文件可能被导入到多个账户（文件名按 SHA 存放），确认没有其他批次引用再删原文件
+    left = query_one("""SELECT COUNT(*) AS c FROM statement_imports
+                         WHERE entity_id=%s AND sha256_hash=%s""",
+                     (e["entity_id"], si["sha256_hash"]))
+    if not left or int(left["c"] or 0) == 0:
+        f = STORAGE_DIR / "bank-statements" / str(e["entity_id"]) / (str(si["sha256_hash"]) + ext)
+        try:
+            if f.is_file():
+                f.unlink()
+        except OSError:
+            pass
+
+    return {"ok": True, "batchId": batch_id, "linesRemoved": int(removed),
+            "balance": new_balance}
 
 
 @app.get("/bank/statement-imports/<int:batch_id>/file")

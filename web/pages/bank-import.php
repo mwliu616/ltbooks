@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 $role = isset($role) ? $role : 'accountant';
-$msg = null; $errMsg = null; $detail = null;
+$msg = null; $msgTitle = '导入成功'; $errMsg = null; $detail = null;
 
 // 多文件上传时总大小可能超过 post_max_size，此时 PHP 会清空 $_POST/$_FILES，需给出明确提示。
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && empty($_FILES)
@@ -140,6 +140,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
     }
 }
 
+// ---- 删除尚未对账的月结单导入，便于重新上传 ----
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'delete_import') {
+    $bid = (int) ($_POST['batch_id'] ?? 0);
+    if ($bid <= 0) {
+        $errMsg = '参数错误：缺少导入批次';
+    } else {
+        $r = api_request('DELETE', '/bank/statement-imports/' . $bid,
+                         ['actor' => $displayName ?? 'system']);
+        if ($r['ok']) {
+            $msg = '已删除该月结单导入，可重新上传同一文件';
+            $msgTitle = '已删除';
+        } else {
+            $errMsg = (string) $r['error'];
+        }
+    }
+}
+
 // 每份文件的期间、合计与算术校验，预览和批量导入共用。
 $bankFileStats = static function (array $p): array {
     $m = $p['meta'] ?? [];
@@ -158,7 +175,7 @@ $bankFileStats = static function (array $p): array {
     ];
 };
 
-if ($msg) { echo '<div class="banner PASS"><span class="banner-icon">✓</span><div class="banner-body"><div class="banner-title">导入成功</div><div class="banner-reason">' . e($msg) . '</div></div></div>'; }
+if ($msg) { echo '<div class="banner PASS"><span class="banner-icon">✓</span><div class="banner-body"><div class="banner-title">' . e($msgTitle) . '</div><div class="banner-reason">' . e($msg) . '</div></div></div>'; }
 if ($errMsg) { echo errbox($errMsg); }
 if ($detail) { echo '<div class="errbox"><b>算术校验明细</b><div>' . e(implode('；', (array) $detail)) . '</div></div>'; }
 
@@ -172,34 +189,55 @@ $imports = $impR['ok'] ? ($impR['data']['imports'] ?? []) : [];
 <?php ob_start(); ?>
 <div class="toolbar" style="padding:10px 14px;border-bottom:1px solid var(--c-border)">
   <span class="hint"><?= e(t('已导入的月结单按时间倒序；查看跳转到该账户流水，下载为原始文件。')) ?></span>
-  <?php if ($role !== 'auditor'): ?>
-  <a class="btn primary sm" style="margin-left:auto" href="?p=bank-import&upload=1">＋ <?= e(t('导入月结单')) ?></a>
-  <?php endif; ?>
 </div>
 <div class="table-wrap"><table>
 <thead><tr>
   <th style="width:150px"><?= e(t('导入时间')) ?></th>
   <th><?= e(t('文件名')) ?></th>
-  <th style="width:150px"><?= e(t('银行账户')) ?></th>
+  <th style="width:200px"><?= e(t('银行账户')) ?></th>
   <th style="width:170px"><?= e(t('期间')) ?></th>
   <th class="num" style="width:70px"><?= e(t('行数')) ?></th>
-  <th style="width:100px"><?= e(t('操作')) ?></th>
+  <th style="width:110px"><?= e(t('对账状态')) ?></th>
+  <th style="width:170px"><?= e(t('操作')) ?></th>
 </tr></thead>
 <tbody>
 <?php if (!$imports): ?>
-  <tr><td colspan="6"><?= empty_state(t('还没有导入月结单。点击右上角「导入月结单」上传文件。')) ?></td></tr>
+  <tr><td colspan="7"><?= empty_state(t('还没有导入月结单。点击右上角「导入月结单」上传文件。')) ?></td></tr>
 <?php endif; ?>
 <?php foreach ($imports as $x): ?>
+  <?php
+    $matched = (int) ($x['matched_lines'] ?? 0);
+    $total = (int) ($x['imported_lines'] ?? $x['line_count'] ?? 0);
+  ?>
   <tr>
     <td style="white-space:nowrap"><?= e((string) ($x['imported_at'] ?? '—')) ?></td>
     <td><?= e((string) ($x['file_name'] ?? '—')) ?></td>
-    <td><?= e((string) ($x['account_name'] ?? '—')) ?></td>
+    <td style="white-space:nowrap"><?= e((string) ($x['account_name'] ?? '—')) ?></td>
     <td style="white-space:nowrap"><?= e(trim(($x['period_start'] ?? '') . ' ~ ' . ($x['period_end'] ?? ''), ' ~') ?: '—') ?></td>
-    <td class="num"><?= (int) ($x['line_count'] ?? 0) ?></td>
+    <td class="num"><?= $total ?></td>
     <td>
+      <?php if ($matched > 0): ?>
+        <span class="tag tag-ok"><?= e(t('已对账')) ?> <?= $matched ?>/<?= $total ?></span>
+      <?php else: ?>
+        <span class="tag tag-draft"><?= e(t('未对账')) ?></span>
+      <?php endif; ?>
+    </td>
+    <td style="white-space:nowrap">
       <a class="btn sm" href="?p=bank-transactions&account=<?= (int) ($x['bank_account_id'] ?? 0) ?>"><?= e(t('查看')) ?></a>
       <?php if (!empty($x['has_file'])): ?>
       <a class="btn sm" href="download.php?statement=<?= (int) $x['batch_id'] ?>"><?= e(t('下载')) ?></a>
+      <?php endif; ?>
+      <?php if ($role !== 'auditor'): ?>
+        <?php if ($matched > 0): ?>
+          <button class="btn sm" type="button" disabled title="<?= e(t('该月结单已有流水完成对账，需先在银行流水页撤销匹配')) ?>"><?= e(t('删除')) ?></button>
+        <?php else: ?>
+          <form method="post" style="display:inline" onsubmit="return confirm('删除该月结单导入及其未对账流水？删除后可以重新上传同一文件。')">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="delete_import">
+            <input type="hidden" name="batch_id" value="<?= (int) $x['batch_id'] ?>">
+            <button class="btn sm danger" type="submit"><?= e(t('删除')) ?></button>
+          </form>
+        <?php endif; ?>
       <?php endif; ?>
     </td>
   </tr>

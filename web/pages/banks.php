@@ -44,10 +44,6 @@ if ($msg) { echo '<div class="banner PASS"><span class="banner-icon">✓</span><
 if ($errMsg) { echo errbox($errMsg); }
 
 if (!$formMode):
-if ($role !== 'auditor') {
-    echo '<div class="toolbar" style="margin-bottom:12px"><span class="spacer"></span>'
-       . '<a class="btn primary" href="?p=banks&new=1">+ 新增银行账户</a></div>';
-}
 foreach ($groups as $g) {
     ob_start(); ?>
     <div class="table-wrap"><table>
@@ -115,8 +111,8 @@ ob_start(); ?>
     </div>
   </div>
   <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0">
-    <button class="btn primary">建立账户</button>
     <a class="btn" href="?p=banks">取消</a>
+    <button class="btn primary">建立账户</button>
     <label style="display:flex;gap:6px;align-items:center;font-size:var(--f-xs)">
       <input type="checkbox" name="isCreditCard" value="1"> 信用卡账户
     </label>
