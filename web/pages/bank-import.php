@@ -232,7 +232,9 @@ $imports = $impR['ok'] ? ($impR['data']['imports'] ?? []) : [];
       <?= e(t('支持电子表格（CSV / XLSX / XLS）与 PDF（含扫描件，自动 OCR）')) ?>
       <?= e(t('上限 20MB。上传后先出预览，确认无误再导入。')) ?>
       <?= e(t('可一次选择多个文件（最多 10 份）。')) ?>
+      <?= e(t('选择器只允许单选时，可多次选择，已选文件会累加。')) ?>
     </div>
+    <div id="pickedFiles" style="margin-top:6px"></div>
   </div>
   <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0">
     <button class="btn primary">上传并解析</button>
@@ -326,6 +328,66 @@ ob_start(); ?>
   <span class="hint">确认预览无误后导入；同一文件不会重复入账</span>
 </div>
 <?php endif; ?>
+<script>
+(function () {
+  var input = document.querySelector('input[name="statement[]"]');
+  var box = document.getElementById('pickedFiles');
+  if (!input || !box || typeof DataTransfer === 'undefined') return;
+
+  var MAX = 10;
+  var picked = new DataTransfer();
+
+  function key(f) { return f.name + '|' + f.size + '|' + f.lastModified; }
+
+  function render() {
+    box.innerHTML = '';
+    Array.prototype.forEach.call(picked.files, function (f, i) {
+      var row = document.createElement('div');
+      row.className = 'hint';
+      row.style.padding = '2px 0';
+      var name = document.createElement('span');
+      name.textContent = (i + 1) + '. ' + f.name + ' (' + Math.max(1, Math.round(f.size / 1024)) + ' KB)';
+      var del = document.createElement('a');
+      del.href = '#';
+      del.textContent = '移除';
+      del.style.marginLeft = '8px';
+      del.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var next = new DataTransfer();
+        Array.prototype.forEach.call(picked.files, function (g, j) {
+          if (j !== i) next.items.add(g);
+        });
+        picked = next;
+        input.files = picked.files;
+        render();
+      });
+      row.appendChild(name);
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+    if (picked.files.length) {
+      var tip = document.createElement('div');
+      tip.className = 'hint';
+      tip.textContent = '已选 ' + picked.files.length + ' 个文件；继续选择会追加，点「上传并解析」一次提交。';
+      box.appendChild(tip);
+    }
+  }
+
+  input.addEventListener('change', function () {
+    var seen = {};
+    Array.prototype.forEach.call(picked.files, function (f) { seen[key(f)] = true; });
+    var incoming = Array.prototype.slice.call(input.files);
+    for (var i = 0; i < incoming.length; i++) {
+      if (picked.files.length >= MAX) { alert('一次最多上传 10 份月结单'); break; }
+      if (seen[key(incoming[i])]) continue;
+      seen[key(incoming[i])] = true;
+      picked.items.add(incoming[i]);
+    }
+    input.files = picked.files;
+    render();
+  });
+})();
+</script>
 <?php endif; ?>
 <?php endif; ?>
 <style>
