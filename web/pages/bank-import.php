@@ -7,99 +7,156 @@
 $role = isset($role) ? $role : 'accountant';
 $msg = null; $errMsg = null; $detail = null;
 
+// 多文件上传时总大小可能超过 post_max_size，此时 PHP 会清空 $_POST/$_FILES，需给出明确提示。
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && empty($_FILES)
+    && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+    $errMsg = '上传内容超过服务器限制（post_max_size=' . ini_get('post_max_size') . '），请减少文件数量或分批上传';
+}
+
 $accR = api_get('/bank-accounts');
 $accounts = $accR['ok'] ? ($accR['data']['accounts'] ?? []) : [];
 
-// ---- 上传文件并解析（CSV / XLSX / XLS / PDF）----
-$parsed = null;
+// ---- 上传文件并解析（CSV / XLSX / XLS / PDF），支持一次多份 ----
+$parsedFiles = [];
+$uploadErrors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'parse_file') {
+    $acctId = (int) ($_POST['bankAccountId'] ?? 0);
     $up = $_FILES['statement'] ?? null;
-    if (!$up || ($up['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+
+    // 单文件时 $_FILES 是标量；多文件（name="statement[]"）时每个字段都是数组。
+    $files = [];
+    if (is_array($up) && isset($up['name']) && is_array($up['name'])) {
+        foreach ($up['name'] as $i => $name) {
+            $files[] = [
+                'name' => (string) $name,
+                'tmp' => (string) ($up['tmp_name'][$i] ?? ''),
+                'error' => (int) ($up['error'][$i] ?? UPLOAD_ERR_NO_FILE),
+            ];
+        }
+    } elseif (is_array($up) && isset($up['name'])) {
+        $files[] = [
+            'name' => (string) $up['name'],
+            'tmp' => (string) ($up['tmp_name'] ?? ''),
+            'error' => (int) ($up['error'] ?? UPLOAD_ERR_NO_FILE),
+        ];
+    }
+    $files = array_values(array_filter($files, static fn($f) => $f['name'] !== '' && $f['error'] !== UPLOAD_ERR_NO_FILE));
+
+    if (!$files) {
         $errMsg = '请选择要上传的对账单文件';
+    } elseif (count($files) > 10) {
+        $errMsg = '一次最多上传 10 份月结单';
     } else {
-        $r = api_upload('/bank/parse-statement', 'file', $up['tmp_name'], (string) $up['name']);
-        if ($r['ok']) {
-            $parsed = $r['data'];
-            $parsed['uploadedName'] = (string) $up['name'];
-            $parsed['bankAccountId'] = (int) ($_POST['bankAccountId'] ?? 0);
-        } else {
-            $errMsg = (string) $r['error'];
+        foreach ($files as $f) {
+            if ($f['error'] !== UPLOAD_ERR_OK) {
+                $uploadErrors[] = $f['name'] . '：上传失败（错误码 ' . $f['error'] . '）';
+                continue;
+            }
+            $r = api_upload('/bank/parse-statement', 'file', $f['tmp'], $f['name']);
+            if ($r['ok']) {
+                $p = $r['data'];
+                $p['uploadedName'] = $f['name'];
+                $p['bankAccountId'] = $acctId;
+                $parsedFiles[] = $p;
+            } else {
+                $uploadErrors[] = $f['name'] . '：' . $r['error'];
+            }
+        }
+        if (!$parsedFiles) {
+            $errMsg = implode('；', $uploadErrors) ?: '文件解析失败';
         }
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'import_statement') {
-    $acctId = (int) ($_POST['bankAccountId'] ?? 0);
-    $raw = (string) ($_POST['csv'] ?? '');
-    $fileName = trim((string) ($_POST['fileName'] ?? 'statement.csv'));
+    // 一次可提交多份解析结果：base64 JSON，避免大段文本被 HTML 转义。
+    $packed = (string) ($_POST['batch'] ?? '');
+    $items = $packed !== '' ? json_decode((string) base64_decode($packed, true), true) : null;
 
-    // 文件解析的结果用 base64 JSON 传递，避免 CSV 在 textarea 里被 HTML 转义
-    $lines = [];
-    $parseErr = null;
-    $packed = (string) ($_POST['parsedRows'] ?? '');
-    if ($packed !== '') {
-        $decoded = json_decode((string) base64_decode($packed, true), true);
-        if (!is_array($decoded) || !$decoded) {
-            $parseErr = '解析结果已损坏，请重新上传文件';
-        } else {
-            foreach ($decoded as $r) {
-                $lines[] = [
-                    'date' => (string) ($r['date'] ?? ''),
-                    'amount' => (float) ($r['amount'] ?? 0),
-                    'ref' => (string) ($r['ref'] ?? ''),
-                    'counterparty' => (string) ($r['description'] ?? ''),
-                ];
-            }
-            $raw = 'file:' . $fileName;
-        }
-    }
-    foreach (($packed !== '' ? [] : preg_split('/\r\n|\r|\n/', trim($raw))) as $i => $row) {
-        if ($i === 0 && stripos($row, 'date') !== false) { continue; }  // 跳过表头
-        if (trim($row) === '') { continue; }
-        $c = str_getcsv($row);
-        if (count($c) < 2) { $parseErr = '第 ' . ($i + 1) . ' 行列数不足'; break; }
-        $amt = is_numeric(trim($c[1])) ? (float) trim($c[1]) : null;
-        if ($amt === null) { $parseErr = '第 ' . ($i + 1) . ' 行金额不是数字'; break; }
-        $lines[] = [
-            'date' => trim($c[0]),
-            'amount' => $amt,
-            'ref' => trim($c[2] ?? ''),
-            'counterparty' => trim($c[3] ?? ''),
-        ];
-    }
-
-    if ($parseErr !== null) {
-        $errMsg = 'CSV 解析失败：' . $parseErr;
-    } elseif (!$lines) {
-        $errMsg = '没有解析到任何明细行';
+    if (!is_array($items) || !$items) {
+        $errMsg = '解析结果已损坏，请重新上传文件';
     } else {
-        $sha = hash('sha256', $raw);
-        $r = api_post('/bank/import', [
-            'bankAccountId' => $acctId,
-            'fileName' => $fileName,
-            'fileFormat' => 'csv',
-            'sha256' => $sha,
-            'header' => [
-                'periodStart' => $_POST['periodStart'] ?: null,
-                'periodEnd' => $_POST['periodEnd'] ?: null,
-                'openingBalance' => (float) ($_POST['openingBalance'] ?? 0),
-                'closingBalance' => (float) ($_POST['closingBalance'] ?? 0),
-                'totalDebits' => (float) ($_POST['totalDebits'] ?? 0),
-                'totalCredits' => (float) ($_POST['totalCredits'] ?? 0),
-            ],
-            'lines' => $lines,
-            'actor' => $displayName ?? 'system',
-        ]);
-        if ($r['ok']) {
-            $msg = (string) ($r['data']['note'] ?? '导入完成');
-        } elseif ($r['status'] === 409) {
-            $errMsg = (string) ($r['data']['reason'] ?? '重复导入');
-        } else {
-            $errMsg = (string) $r['error'];
-            $detail = $r['data']['detail'] ?? null;
+        $done = [];
+        $failed = [];
+        foreach ($items as $it) {
+            $fileName = trim((string) ($it['fileName'] ?? '')) ?: 'statement.csv';
+            $rows = $it['rows'] ?? null;
+
+            $lines = [];
+            $rowErr = null;
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    if (!isset($row['amount']) || !is_numeric($row['amount'])) {
+                        $rowErr = '有明细行的金额不是数字';
+                        break;
+                    }
+                    $lines[] = [
+                        'date' => (string) ($row['date'] ?? ''),
+                        'amount' => (float) $row['amount'],
+                        'ref' => (string) ($row['ref'] ?? ''),
+                        'counterparty' => (string) ($row['description'] ?? ''),
+                    ];
+                }
+            }
+            if ($rowErr !== null) {
+                $failed[] = $fileName . '：' . $rowErr;
+                continue;
+            }
+            if (!$lines) {
+                $failed[] = $fileName . '：没有解析到任何明细行';
+                continue;
+            }
+
+            $hdr = is_array($it['header'] ?? null) ? $it['header'] : [];
+            $r = api_post('/bank/import', [
+                'bankAccountId' => (int) ($it['bankAccountId'] ?? 0),
+                'fileName' => $fileName,
+                'fileFormat' => (string) ($it['fileFormat'] ?? 'csv'),
+                'sha256' => (string) ($it['sha256'] ?? ''),
+                'header' => [
+                    'periodStart' => ($hdr['periodStart'] ?? '') ?: null,
+                    'periodEnd' => ($hdr['periodEnd'] ?? '') ?: null,
+                    'openingBalance' => (float) ($hdr['openingBalance'] ?? 0),
+                    'closingBalance' => (float) ($hdr['closingBalance'] ?? 0),
+                    'totalDebits' => (float) ($hdr['totalDebits'] ?? 0),
+                    'totalCredits' => (float) ($hdr['totalCredits'] ?? 0),
+                ],
+                'lines' => $lines,
+                'actor' => $displayName ?? 'system',
+            ]);
+            if ($r['ok']) {
+                $done[] = $fileName . '：' . (string) ($r['data']['note'] ?? '导入完成');
+            } elseif (!empty($r['data']['duplicate'])) {
+                $done[] = $fileName . '：' . (string) ($r['data']['note'] ?? '该对账单已导入过');
+            } else {
+                $failed[] = $fileName . '：' . (string) $r['error'];
+                if (!empty($r['data']['detail'])) {
+                    $detail = $r['data']['detail'];
+                }
+            }
         }
+        if ($done) { $msg = implode('；', $done); }
+        if ($failed) { $errMsg = implode('；', $failed); }
     }
 }
+
+// 每份文件的期间、合计与算术校验，预览和批量导入共用。
+$bankFileStats = static function (array $p): array {
+    $m = $p['meta'] ?? [];
+    $open = (float) ($m['openingBalance'] ?? 0);
+    $close = (float) ($m['closingBalance'] ?? 0);
+    $deb = (float) ($m['totalDebits'] ?? ($p['sumDebits'] ?? 0));
+    $cre = (float) ($m['totalCredits'] ?? ($p['sumCredits'] ?? 0));
+    $rows = is_array($p['rows'] ?? null) ? $p['rows'] : [];
+    $dates = array_values(array_filter(array_map(static fn($r) => (string) ($r['date'] ?? ''), $rows)));
+    return [
+        'open' => $open, 'close' => $close, 'deb' => $deb, 'cre' => $cre,
+        'expect' => $open + $cre - $deb,
+        'okMath' => abs($open + $cre - $deb - $close) < 0.005,
+        'pStart' => $dates ? min($dates) : '',
+        'pEnd' => $dates ? max($dates) : '',
+    ];
+};
 
 if ($msg) { echo '<div class="banner PASS"><span class="banner-icon">✓</span><div class="banner-body"><div class="banner-title">导入成功</div><div class="banner-reason">' . e($msg) . '</div></div></div>'; }
 if ($errMsg) { echo errbox($errMsg); }
@@ -169,11 +226,12 @@ $imports = $impR['ok'] ? ($impR['data']['imports'] ?? []) : [];
   </div>
   <div class="field">
     <label class="f">上传月结单</label>
-    <input type="file" name="statement" required
+    <input type="file" name="statement[]" required multiple
            accept=".csv,.xlsx,.xls,.pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf">
     <div class="hint">
       <?= e(t('支持电子表格（CSV / XLSX / XLS）与 PDF（含扫描件，自动 OCR）')) ?>
       <?= e(t('上限 20MB。上传后先出预览，确认无误再导入。')) ?>
+      <?= e(t('可一次选择多个文件（最多 10 份）。')) ?>
     </div>
   </div>
   <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0">
@@ -183,33 +241,51 @@ $imports = $impR['ok'] ? ($impR['data']['imports'] ?? []) : [];
 </form>
 <?php echo card('① 从文件导入', ob_get_clean(), '', false); ?>
 
-<?php if ($parsed): ?>
+<?php if ($uploadErrors && $parsedFiles): ?>
+<div class="errbox"><b><?= e(t('部分文件未能解析：')) ?></b><div><?= e(implode('；', $uploadErrors)) ?></div></div>
+<?php endif; ?>
+
+<?php if ($parsedFiles): ?>
 <?php
 $srcLabel = ['csv' => 'CSV', 'xlsx' => 'Excel (XLSX)', 'xls' => 'Excel (XLS)',
              'pdf' => 'PDF（文字层）', 'pdf-ocr' => 'PDF（扫描件 OCR）'];
-$m = $parsed['meta'] ?? [];
-$open = $m['openingBalance'] ?? 0;
-$close = $m['closingBalance'] ?? 0;
-$deb = $m['totalDebits'] ?? $parsed['sumDebits'];
-$cre = $m['totalCredits'] ?? $parsed['sumCredits'];
-$expect = $open + $cre - $deb;
-$okMath = abs($expect - $close) < 0.005;
-$dates = array_values(array_filter(array_map(fn($r) => (string) ($r['date'] ?? ''), $parsed['rows'])));
-$pStart = $dates ? min($dates) : '';
-$pEnd = $dates ? max($dates) : '';
+$batch = [];
+foreach ($parsedFiles as $p) {
+    $st = $bankFileStats($p);
+    $batch[] = [
+        'fileName' => (string) ($p['uploadedName'] ?? 'statement.csv'),
+        'sha256' => (string) ($p['sha256'] ?? ''),
+        'fileFormat' => (string) ($p['fileFormat'] ?? 'csv'),
+        'bankAccountId' => (int) ($p['bankAccountId'] ?? 0),
+        'header' => [
+            'periodStart' => $st['pStart'], 'periodEnd' => $st['pEnd'],
+            'openingBalance' => $st['open'], 'closingBalance' => $st['close'],
+            'totalDebits' => $st['deb'], 'totalCredits' => $st['cre'],
+        ],
+        'rows' => $p['rows'] ?? [],
+    ];
+}
+$batchJson = base64_encode((string) json_encode($batch, JSON_UNESCAPED_UNICODE));
+?>
+<?php foreach ($parsedFiles as $p): ?>
+<?php
+$st = $bankFileStats($p);
+$okMath = $st['okMath'];
+$rowCount = (int) ($p['rowCount'] ?? count($p['rows'] ?? []));
 $fmt = fn($v) => money($v, 'HKD');
 $reason = strtr(t($okMath
     ? '期初 {open} + 存入 {in} − 支出 {out} = {expect}，与期末 {close} 一致'
     : '期初 {open} + 存入 {in} − 支出 {out} = {expect}，但期末为 {close}，差额 {diff}'), [
-    '{open}' => $fmt($open), '{in}' => $fmt($cre), '{out}' => $fmt($deb),
-    '{expect}' => $fmt($expect), '{close}' => $fmt($close), '{diff}' => $fmt($expect - $close),
+    '{open}' => $fmt($st['open']), '{in}' => $fmt($st['cre']), '{out}' => $fmt($st['deb']),
+    '{expect}' => $fmt($st['expect']), '{close}' => $fmt($st['close']),
+    '{diff}' => $fmt($st['expect'] - $st['close']),
 ]);
 ob_start(); ?>
 <div class="metrics">
-  <div class="metric"><div class="lbl">来源</div><div class="val" style="font-size:var(--f-lg)"><?= e($srcLabel[$parsed['source']] ?? $parsed['source']) ?></div></div>
-  <div class="metric"><div class="lbl">交易行</div><div class="val"><?= num($parsed['rowCount']) ?></div></div>
-  <div class="metric"><div class="lbl">支出合计</div><div class="val" style="font-size:var(--f-lg)"><?= money($parsed['sumDebits'], 'HKD') ?></div></div>
-  <div class="metric"><div class="lbl">存入合计</div><div class="val" style="font-size:var(--f-lg)"><?= money($parsed['sumCredits'], 'HKD') ?></div></div>
+  <div class="metric"><div class="lbl">来源</div><div class="val" style="font-size:var(--f-lg)"><?= e($srcLabel[$p['source']] ?? (string) $p['source']) ?></div></div>
+  <div class="metric"><div class="lbl">交易行</div><div class="val"><?= num($rowCount) ?></div></div>
+  <div class="metric"><div class="lbl">支出合计</div><div class="val" style="font-size:var(--f-lg)"><?= money($p['sumDebits'] ?? 0, 'HKD') ?></div></div>
+  <div class="metric"><div class="lbl">存入合计</div><div class="val" style="font-size:var(--f-lg)"><?= money($p['sumCredits'] ?? 0, 'HKD') ?></div></div>
 </div>
 <div class="banner <?= $okMath ? 'PASS' : 'REVIEW' ?>">
   <span class="banner-icon"><?= $okMath ? '✓' : '!' ?></span>
@@ -218,13 +294,13 @@ ob_start(); ?>
     <div class="banner-reason"><?= e($reason) ?></div>
   </div>
 </div>
-<?php if (!empty($parsed['warnings'])): ?>
-  <div class="errbox"><b>解析提示</b><div><?= e(implode('；', (array) $parsed['warnings'])) ?></div></div>
+<?php if (!empty($p['warnings'])): ?>
+  <div class="errbox"><b>解析提示</b><div><?= e(implode('；', (array) $p['warnings'])) ?></div></div>
 <?php endif; ?>
 <div class="table-wrap" style="max-height:420px;overflow:auto"><table>
 <thead><tr><th>日期</th><th>摘要</th><th class="num">支出</th><th class="num">存入</th><th class="num">余额</th></tr></thead>
 <tbody>
-<?php foreach ($parsed['rows'] as $r): ?>
+<?php foreach (array_slice($p['rows'] ?? [], 0, 500) as $r): ?>
   <tr><td style="white-space:nowrap"><?= e((string) $r['date']) ?></td>
   <td><?= e((string) $r['description']) ?></td>
   <td class="num"><?= $r['debit'] > 0 ? money($r['debit']) : '—' ?></td>
@@ -232,27 +308,23 @@ ob_start(); ?>
   <td class="num"><?= $r['balance'] !== null ? money($r['balance']) : '—' ?></td></tr>
 <?php endforeach; ?>
 </tbody></table></div>
-<?php if (!empty($parsed['truncated'])): ?>
-  <div class="hint" style="padding:8px 14px">仅预览前 500 行，导入时按全部 <?= num($parsed['rowCount']) ?> 行处理</div>
+<?php if ($rowCount > 500): ?>
+  <div class="hint" style="padding:8px 14px">仅预览前 500 行，导入时按全部 <?= num($rowCount) ?> 行处理</div>
 <?php endif; ?>
+<?php echo card('② 解析预览 · ' . (string) ($p['uploadedName'] ?? ''), ob_get_clean(), '', false); ?>
+<?php endforeach; ?>
+
 <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0">
   <form method="post" style="display:inline">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="import_statement">
-    <input type="hidden" name="bankAccountId" value="<?= (int) ($parsed['bankAccountId'] ?? 0) ?>">
-    <input type="hidden" name="fileName" value="<?= e($parsed['uploadedName'] ?? 'statement.csv') ?>">
-    <input type="hidden" name="parsedRows" value="<?= e(base64_encode((string) json_encode($parsed['rows'], JSON_UNESCAPED_UNICODE))) ?>">
-    <input type="hidden" name="periodStart" value="<?= e($pStart) ?>">
-    <input type="hidden" name="periodEnd" value="<?= e($pEnd) ?>">
-    <input type="hidden" name="openingBalance" value="<?= e((string) $open) ?>">
-    <input type="hidden" name="closingBalance" value="<?= e((string) $close) ?>">
-    <input type="hidden" name="totalDebits" value="<?= e((string) $deb) ?>">
-    <input type="hidden" name="totalCredits" value="<?= e((string) $cre) ?>">
-    <button class="btn primary" onclick="return confirm('<?= e(t('确认将解析结果导入系统？')) ?>')">导入并校验</button>
+    <input type="hidden" name="batch" value="<?= e($batchJson) ?>">
+    <button class="btn primary" onclick="return confirm('<?= e('确认将选中的 ' . count($parsedFiles) . ' 份解析结果导入系统？') ?>')">
+      <?= e(t('全部导入并校验')) ?>（<?= count($parsedFiles) ?> 份）
+    </button>
   </form>
   <span class="hint">确认预览无误后导入；同一文件不会重复入账</span>
 </div>
-<?php echo card('② 解析预览', ob_get_clean(), '', false); ?>
 <?php endif; ?>
 <?php endif; ?>
 <?php endif; ?>

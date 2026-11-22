@@ -1848,6 +1848,9 @@ return [
 
 // ---- 流水导入说明 ----
 '支持电子表格（CSV / XLSX / XLS）与 PDF（含扫描件，自动 OCR）' => 'Supports spreadsheets (CSV / XLSX / XLS) and PDF, including scans with automatic OCR',
+'可一次选择多个文件（最多 10 份）。' => 'Select multiple files at once (up to 10).',
+'部分文件未能解析：' => 'Some files could not be parsed:',
+'全部导入并校验' => 'Import All and Validate',
 
 // ---- 分页条 ----
 '全部' => 'All',

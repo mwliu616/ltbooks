@@ -6758,7 +6758,7 @@ def bank_parse_statement():
         "fileFormat": ext.lstrip("."),
         "source": parsed["source"],
         "rowCount": len(rows),
-        "rows": rows[:500],
+        "rows": rows,
         "truncated": len(rows) > 500,
         "sumDebits": round(debits, 2),
         "sumCredits": round(credits, 2),
