@@ -1,0 +1,14 @@
+-- 31: 大模型服务商（可配置多个，选一个当前生效）
+CREATE TABLE IF NOT EXISTS llm_providers (
+  provider_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(80) NOT NULL,
+  base VARCHAR(255) NOT NULL,
+  api_key TEXT NULL,
+  model VARCHAR(120) NOT NULL,
+  temperature DECIMAL(3,2) NOT NULL DEFAULT 0.20,
+  is_active TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (provider_id),
+  UNIQUE KEY uk_llm_provider_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

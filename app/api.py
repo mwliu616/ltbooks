@@ -6035,10 +6035,12 @@ def ai_review_advice():
 @app.get("/ai/ocr-status")
 def ai_ocr_status():
     from core.ocr import available
-    from config import env as _env
+    from core.settings import llm_config
+    c = llm_config()
     return J({"tools": available(),
-              "llmConfigured": bool(_env("LEDU_LLM_API_KEY")),
-              "model": _env("LEDU_LLM_MODEL") or None})
+              "llmConfigured": bool(c.get("apiKey")),
+              "provider": c.get("providerName") or None,
+              "model": c.get("model") or None})
 
 
 # ------------------------------------------------------------------ PDF
@@ -8881,6 +8883,121 @@ def settings_llm_model():
     set_model(model, str(p.get("actor") or "system"))
     append_audit_via_api(str(p.get("actor") or "system"), "settings.llm_model", {"model": model})
     return J({"ok": True, "model": model})
+
+
+# ---- 大模型服务商：可以配多个，选一个当前生效 ---------------------------------
+def _llm_require_editor():
+    require_writer()
+    if current_role() not in ("admin", "accountant"):
+        raise ValueError("只有管理员或会计可以修改大模型配置")
+
+
+@app.get("/settings/llm/providers")
+def llm_providers_get():
+    """服务商列表 + 当前生效配置（密钥只回掩码）。"""
+    from core.settings import provider_list, llm_config, mask_key
+    c = llm_config()
+    return J({"providers": provider_list(), "models": LLM_MODELS,
+              "current": {"providerId": c.get("providerId") or 0,
+                          "providerName": c.get("providerName") or "",
+                          "base": c["base"], "model": c["model"],
+                          "keySet": bool(c["apiKey"]),
+                          "keyMask": mask_key(c["apiKey"]),
+                          "source": c.get("source") or "none"}})
+
+
+@app.post("/settings/llm/providers")
+def llm_provider_save():
+    """新增或修改一个服务商。apiKey 留空表示保持原密钥。"""
+    _llm_require_editor()
+    from core.settings import (save_provider, provider_by_id, provider_list,
+                               llm_config)
+    p = request.get_json(force=True) or {}
+    actor = str(p.get("actor") or "system")
+    pid = int(p.get("providerId") or 0)
+    name = str(p.get("name") or "").strip()
+    base = str(p.get("base") or "").strip()
+    model = str(p.get("model") or "").strip()
+    key = str(p.get("apiKey") or "").strip()
+    if not name:
+        raise ValueError("服务商名称不能为空")
+    if not base.startswith(("http://", "https://")):
+        raise ValueError("服务地址必须以 http:// 或 https:// 开头")
+    if not model:
+        raise ValueError("模型名不能为空")
+    try:
+        temp = float(p.get("temperature", 0.2))
+        if not (0 <= temp <= 2):
+            raise ValueError
+    except (TypeError, ValueError):
+        raise ValueError("温度应是 0–2 之间的数字")
+    if pid and not provider_by_id(pid):
+        raise ValueError("服务商不存在")
+    if not pid and not key:
+        # 第一次把旧配置搬进服务商表：沿用旧密钥，免得用户再填一遍
+        if not provider_list():
+            key = llm_config().get("apiKey") or ""
+    try:
+        pid = save_provider(pid or None, name, base, model, key, temp, actor)
+    except Exception as ex:
+        if "Duplicate" in str(ex) or "uk_llm_provider_name" in str(ex):
+            raise ValueError("服务商名称已存在")
+        raise
+    append_audit_via_api(actor, "settings.llm_provider_save",
+                         {"providerId": pid, "name": name, "base": base,
+                          "model": model, "keyChanged": bool(key)})
+    return J({"ok": True, "providerId": pid, "providers": provider_list()})
+
+
+@app.post("/settings/llm/providers/<int:provider_id>/activate")
+def llm_provider_activate(provider_id: int):
+    """把某个服务商设为当前生效。"""
+    _llm_require_editor()
+    from core.settings import activate_provider, provider_by_id, provider_list
+    if not provider_by_id(provider_id):
+        raise ValueError("服务商不存在")
+    p = request.get_json(silent=True) or {}
+    actor = str(p.get("actor") or "system")
+    activate_provider(provider_id)
+    append_audit_via_api(actor, "settings.llm_provider_activate", {"providerId": provider_id})
+    return J({"ok": True, "providers": provider_list()})
+
+
+@app.post("/settings/llm/providers/<int:provider_id>/delete")
+def llm_provider_delete(provider_id: int):
+    """删除服务商；若删的是当前项，自动把第一个设回当前。"""
+    _llm_require_editor()
+    from core.settings import delete_provider, provider_by_id, provider_list
+    row = provider_by_id(provider_id)
+    if not row:
+        raise ValueError("服务商不存在")
+    p = request.get_json(silent=True) or {}
+    actor = str(p.get("actor") or "system")
+    delete_provider(provider_id)
+    append_audit_via_api(actor, "settings.llm_provider_delete",
+                         {"providerId": provider_id, "name": row.get("name") or ""})
+    return J({"ok": True, "providers": provider_list()})
+
+
+@app.post("/settings/llm/providers/<int:provider_id>/test")
+def llm_provider_test(provider_id: int):
+    """用指定服务商发一次最小请求（不影响当前生效配置）。"""
+    from core.settings import provider_by_id
+    from core.agents import llm as _llm
+    row = provider_by_id(provider_id)
+    if not row:
+        raise ValueError("服务商不存在")
+    key = str(row.get("api_key") or "")
+    if not key:
+        return J({"ok": False, "error": "该服务商还没有设置 API Key"})
+    try:
+        r = _llm.chat([{"role": "user", "content": "回复两个字：可用"}], max_tokens=16,
+                      cfg=(key, str(row.get("base") or "").rstrip("/"),
+                           str(row.get("model") or "")))
+        txt = str((r or {}).get("message", {}).get("content") or "").strip()[:40]
+        return J({"ok": True, "reply": txt})
+    except Exception as ex:
+        return J({"ok": False, "error": str(ex)[:200]})
 
 
 # ---------------------------------------------------------------- 智能体执行工具绑定

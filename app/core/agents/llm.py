@@ -44,12 +44,14 @@ def _post(url, payload, headers, timeout=TIMEOUT):
 
 
 def chat(messages, tools=None, *, temperature=0.2, max_tokens=1600,
-         model=None, json_mode=False, timeout=TIMEOUT):
+         model=None, json_mode=False, timeout=TIMEOUT, cfg=None):
     """一次对话调用。返回 message 字典（可能带 tool_calls）。
 
+    cfg 可显式传入 (key, base, model)，用于「测试某个服务商」；
+    不传则用当前生效的配置。
     失败重试 3 次（指数退避）；仍失败抛 LLMError，由上层降级。
     """
-    key, base, default_model = _cfg()
+    key, base, default_model = cfg or _cfg()
     payload = {
         "model": model or default_model,
         "messages": messages,
