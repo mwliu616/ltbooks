@@ -54,12 +54,20 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 - `LTBOOKS_SSL_EMAIL` skips the prompt. `LTBOOKS_SSL_MODE=letsencrypt` requires an email
   and validates the format before continuing.
 
+### 0.5 User administration and sign-out (2026-11-23)
+
+| Item | Change |
+| --- | --- |
+| User management | The account page can edit a user (display name, role, status) and delete users. The built-in `admin` account cannot be demoted, disabled or deleted; the signed-in account and the last active administrator are also protected |
+| Sign out | The sign-out button posts to `?p=logout`, deletes the server session, clears the session cookie and returns to the sign-in page |
+| Letterhead PDF | Generation no longer fails silently when the API storage directory is not writable; the upstream error message is returned as-is |
+
 ## 1. Artifacts
 
 | Artifact | Path |
 | --- | --- |
-| Automatic package | `releases/LtBooks-Ver1.0-auto-clean-20261122.tar.gz` |
-| Manual package | `releases/LtBooks-Ver1.0-manual-clean-20261122.zip` |
+| Automatic package | `releases/LtBooks-Ver1.0-auto-clean-20261123.tar.gz` |
+| Manual package | `releases/LtBooks-Ver1.0-manual-clean-20261123.zip` |
 | Checksums | Matching `.sha256` file next to each archive |
 | Manifests | `MANIFEST.txt` (per-file SHA-256) and `PACKAGE.json` (variant and counts) |
 | Documentation | `README.md`, `docs/HOWTO.md`, `docs/DEPLOYMENT.md`, `docs/DEPLOYMENT.zh-CN.md`, `docs/DEPLOYMENT.zh-HK.md`, `docs/DEVELOPMENT.md`, `docs/RELEASE.md` |

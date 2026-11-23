@@ -12,9 +12,9 @@ for an optional certificate email address. Everything else is automatic.
 
 ```bash
 # Keep the archive and its .sha256 file in the same directory.
-sha256sum -c LtBooks-Ver1.0-auto-clean-20261122.tar.gz.sha256
-tar -xzf LtBooks-Ver1.0-auto-clean-20261122.tar.gz
-cd LtBooks-Ver1.0-auto-clean-20261122
+sha256sum -c LtBooks-Ver1.0-auto-clean-20261123.tar.gz.sha256
+tar -xzf LtBooks-Ver1.0-auto-clean-20261123.tar.gz
+cd LtBooks-Ver1.0-auto-clean-20261123
 sudo ./install.sh
 ```
 
@@ -111,8 +111,8 @@ php -r '$m=["curl","mbstring","xml","pdo_mysql"];foreach($m as $x){echo $x,": ",
 Deploy:
 
 ```bash
-unzip LtBooks-Ver1.0-manual-clean-20261122.zip
-cd LtBooks-Ver1.0-manual-clean-20261122
+unzip LtBooks-Ver1.0-manual-clean-20261123.zip
+cd LtBooks-Ver1.0-manual-clean-20261123
 ./install-manual.sh
 ```
 

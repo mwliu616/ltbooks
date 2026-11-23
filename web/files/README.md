@@ -46,8 +46,8 @@ accounts, exchange rate caches, user passwords, receipt files, backups or API ke
 
 | Package | File | When to use it |
 | --- | --- | --- |
-| Automatic | `LtBooks-Ver1.0-auto-clean-20261122.tar.gz` | New Debian or Ubuntu server. Run `./install.sh` as root. It asks for a domain name or server IP, then for an optional certificate email when a domain is used. It installs Nginx, MariaDB, PHP, Python, Node and the OCR/PDF dependencies, then configures HTTPS. |
-| Manual | `LtBooks-Ver1.0-manual-clean-20261122.zip` | Existing hosting panel, internal network, or a server where you manage system packages yourself. Prepare the environment first, then run `./install-manual.sh`, which only creates directories, the database and the configuration. |
+| Automatic | `LtBooks-Ver1.0-auto-clean-20261123.tar.gz` | New Debian or Ubuntu server. Run `./install.sh` as root. It asks for a domain name or server IP, then for an optional certificate email when a domain is used. It installs Nginx, MariaDB, PHP, Python, Node and the OCR/PDF dependencies, then configures HTTPS. |
+| Manual | `LtBooks-Ver1.0-manual-clean-20261123.zip` | Existing hosting panel, internal network, or a server where you manage system packages yourself. Prepare the environment first, then run `./install-manual.sh`, which only creates directories, the database and the configuration. |
 
 Use one package per server, not both. The old AI deployment package has been removed.
 
@@ -59,7 +59,7 @@ Each package has a matching `.sha256` file. Inside the package, `MANIFEST.txt` l
 hash for every file and `PACKAGE.json` records the variant, build date and file count.
 
 ```bash
-sha256sum -c LtBooks-Ver1.0-auto-clean-20261122.tar.gz.sha256
+sha256sum -c LtBooks-Ver1.0-auto-clean-20261123.tar.gz.sha256
 ```
 
 Installation steps are in [HOWTO.md](HOWTO.md). Deployment parameters, directories and
