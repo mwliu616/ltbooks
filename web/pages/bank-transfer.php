@@ -115,7 +115,7 @@ $msg = (string) ($_GET['msg'] ?? '');
   <div class="card-body">
     <h3 style="margin-top:0">外币兑换</h3>
     <div class="hint" style="margin-bottom:10px">
-      按汇丰水单的实际金额填写：例如卖出 1,000.00 HKD、买入 127.04 USD，成交汇率自动算出 0.12704。
+      按银行水单的实际金额填写：例如卖出 1,000.00 HKD、买入 127.04 USD，成交汇率自动算出 0.12704。
       点差形成的差额自动记入 4410 已实现汇兑损益；手续费不在兑换单填写，待月结单确认后单独登记。
     </div>
     <form method="post" id="fxForm">
@@ -143,14 +143,14 @@ $msg = (string) ($_GET['msg'] ?? '');
         <div class="field"><label class="f">日期</label>
           <input type="date" name="date" value="<?= e(date('Y-m-d')) ?>"></div>
         <div class="field"><label class="f">备注</label>
-          <input type="text" name="note" maxlength="200" placeholder="如 HSBC 兑换水单号"></div>
+          <input type="text" name="note" maxlength="200" placeholder="如银行兑换水单号"></div>
       </div>
       <div class="toolbar form-actions" style="margin-top:14px;margin-bottom:0">
         <?php if ($role === 'auditor'): ?>
           <span class="hint">审计角色只读</span>
         <?php else: ?>
           <button class="btn primary"
-            data-confirm="确认生成外币兑换？" data-confirm-note="会按成交金额生成兑换凭证与两条银行流水；导入 HSBC 对账单后可认领替换。"
+            data-confirm="确认生成外币兑换？" data-confirm-note="会按成交金额生成兑换凭证与两条银行流水；导入银行对账单后可认领替换。"
             data-confirm-ok="确认兑换">确认兑换</button>
         <?php endif; ?>
       </div>
@@ -188,7 +188,7 @@ $msg = (string) ($_GET['msg'] ?? '');
                   <input type="hidden" name="op" value="claim">
                   <input type="hidden" name="exchangeId" value="<?= (int) $x['exchangeId'] ?>">
                   <button class="btn small" data-confirm="认领对账单流水？"
-                    data-confirm-note="会用导入的 HSBC 流水替换系统占位流水，金额需一致（容差 0.05）。"
+                    data-confirm-note="会用导入的银行流水替换系统占位流水，金额需一致（容差 0.05）。"
                     data-confirm-ok="认领">认领流水</button>
                 </form>
                 <form method="post" style="display:inline">
