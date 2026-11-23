@@ -100,12 +100,27 @@ ob_start(); ?>
     <div class="field" id="newCcyWrap" style="display:none"><label class="f">新币种代码</label>
       <input type="text" name="newCurrency" maxlength="3" placeholder="GBP" style="text-transform:uppercase"></div>
     <div class="field"><label class="f">会计科目（112x）</label>
-      <select name="accountCode">
+      <select name="accountCode" onchange="pickCcy(this)">
         <option value="">自动：为该币种新建或复用空闲科目</option>
         <?php foreach ($subs as $s): ?>
-          <option value="<?= e($s['accountCode']) ?>"<?= !empty($s['used']) ? ' disabled' : '' ?>><?= e($s['accountCode'] . ' · ' . $s['name']) ?><?= !empty($s['used']) ? '（已使用）' : '' ?></option>
+          <option value="<?= e($s['accountCode']) ?>" data-ccy="<?= e($s['currency'] ?? '') ?>"<?= !empty($s['used']) ? ' disabled' : '' ?>><?= e($s['accountCode'] . ' · ' . $s['name']) ?><?= !empty($s['used']) ? '（已使用）' : '' ?></option>
         <?php endforeach; ?>
       </select>
+      <script>
+      function pickCcy(el) {
+        var c = el.options[el.selectedIndex].getAttribute('data-ccy');
+        if (!c) return;
+        var s = document.getElementById('ccySel'), hit = false;
+        for (var i = 0; i < s.options.length; i++) {
+          if (s.options[i].value === c) { s.selectedIndex = i; hit = true; break; }
+        }
+        if (!hit) {
+          s.value = '__new__';
+          document.querySelector('input[name=newCurrency]').value = c;
+        }
+        s.dispatchEvent(new Event('change'));
+      }
+      </script>
       <div class="hint">可人工指定银行子科目；留空则按币种自动匹配（USD→1122 等），没有空闲科目时自动新建</div>
     </div>
     <div class="field"><label class="f">开户行</label><input type="text" name="bankName"></div>

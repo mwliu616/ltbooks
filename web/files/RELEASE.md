@@ -62,7 +62,7 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 | Sign out | The sign-out button posts to `?p=logout`, deletes the server session, clears the session cookie and returns to the sign-in page |
 | Letterhead PDF | Generation no longer fails silently when the API storage directory is not writable; the upstream error message is returned as-is |
 | Currencies | The FX rate form can add a currency that is not listed yet by choosing **Other currency** and entering its three-letter code. Once a rate exists the currency appears in every currency selector |
-| Bank accounts | **New bank account** lets you pick an existing 112x bank account; when none is picked the system reuses a free one for the currency or creates it. The list shows each account's GL account, and the first account becomes primary receiving |
+| Bank accounts | **New bank account** lets you pick an existing 112x bank account; picking one sets the currency from that account, and a mismatched currency is rejected. Blank keeps the reuse-or-create behaviour. The list shows each account's GL account and groups by currency |
 | AI customer intake | On the customer form, upload a business card / registration certificate or paste the text; the AI agent decides company vs individual and fills the empty fields (name, contact, phone, email, address, BR number…) for review before saving |
 | FX maintenance | The rates page has a **Refresh now** button that runs the same ECB/Frankfurter fetch as the daily 09:00 job and reports the date, pair count and currencies written |
 

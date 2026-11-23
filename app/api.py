@@ -1856,8 +1856,13 @@ def subaccounts(eid: int):
              FROM accounts a
             WHERE a.entity_id=%s AND a.parent_account_code='1120'
             ORDER BY a.account_code""", (eid,))
-    return [{"accountCode": r["account_code"], "name": r["account_name"],
-             "nameEn": r["name_en"], "used": bool(r["used"])} for r in rows]
+    out = []
+    for r in rows:
+        m = re.search(r"—\s*([A-Z]{3})(?:\s+\d+)?$", r["name_en"] or "")
+        out.append({"accountCode": r["account_code"], "name": r["account_name"],
+                    "nameEn": r["name_en"], "currency": m.group(1) if m else None,
+                    "used": bool(r["used"])})
+    return out
 
 
 @app.get("/bank-accounts")
@@ -1928,11 +1933,15 @@ def bank_account_create():
             sel = str(p.get("accountCode") or "").strip()
             code = None
             if sel:
-                cur.execute("""SELECT a.account_code FROM accounts a
+                cur.execute("""SELECT a.account_code, a.name_en FROM accounts a
                                 WHERE a.entity_id=%s AND a.account_code=%s
                                   AND a.parent_account_code='1120'""", (eid, sel))
-                if not cur.fetchone():
+                srow = cur.fetchone()
+                if not srow:
                     raise ValueError("所选会计科目不是本实体 1120 下的银行子科目")
+                m = re.search(r"—\s*([A-Z]{3})(?:\s+\d+)?$", srow["name_en"] or "")
+                if m and m.group(1) != ccy:
+                    raise ValueError(f"所选科目 {sel} 属于 {m.group(1)}，与所选币种 {ccy} 不一致")
                 cur.execute("""SELECT account_id FROM bank_accounts
                                 WHERE entity_id=%s AND account_code=%s LIMIT 1""",
                             (eid, sel))
