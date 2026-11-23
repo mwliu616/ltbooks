@@ -115,8 +115,8 @@ $msg = (string) ($_GET['msg'] ?? '');
   <div class="card-body">
     <h3 style="margin-top:0">外币兑换</h3>
     <div class="hint" style="margin-bottom:10px">
-      按汇丰实际成交金额填写：例如卖出 1,000.00 HKD、买入 127.04 USD，成交汇率自动算出 0.12704。
-      点差形成的差额自动记入 4410 已实现汇兑损益；手续费另记 6400 银行手续费。
+      按汇丰水单的实际金额填写：例如卖出 1,000.00 HKD、买入 127.04 USD，成交汇率自动算出 0.12704。
+      点差形成的差额自动记入 4410 已实现汇兑损益；手续费不在兑换单填写，待月结单确认后单独登记。
     </div>
     <form method="post" id="fxForm">
       <?= csrf_field() ?>
@@ -138,10 +138,8 @@ $msg = (string) ($_GET['msg'] ?? '');
           <input type="number" name="fromAmount" id="fxFrom" step="0.01" min="0.01" required></div>
         <div class="field"><label class="f">买入金额 *</label>
           <input type="number" name="toAmount" id="fxTo" step="0.01" min="0.01" required></div>
-        <div class="field"><label class="f">成交汇率（1 卖出币 = ? 买入币）</label>
-          <input type="number" name="dealRate" id="fxRate" step="0.0000000001" min="0"></div>
-        <div class="field"><label class="f">手续费（卖出币）</label>
-          <input type="number" name="feeAmount" step="0.01" min="0" value="0"></div>
+        <div class="field"><label class="f">成交汇率（自动计算）</label>
+          <input type="text" id="fxRate" readonly tabindex="-1" placeholder="填写买卖金额后自动显示"></div>
         <div class="field"><label class="f">日期</label>
           <input type="date" name="date" value="<?= e(date('Y-m-d')) ?>"></div>
         <div class="field"><label class="f">备注</label>
@@ -215,16 +213,11 @@ $msg = (string) ($_GET['msg'] ?? '');
 (function () {
   var from = document.getElementById('fxFrom'), to = document.getElementById('fxTo'),
       rate = document.getElementById('fxRate');
-  function calcTo() {
-    var f = parseFloat(from.value), r = parseFloat(rate.value);
-    if (f > 0 && r > 0) { to.value = (f * r).toFixed(2); }
-  }
   function calcRate() {
     var f = parseFloat(from.value), t = parseFloat(to.value);
-    if (f > 0 && t > 0) { rate.value = (t / f).toFixed(10).replace(/0+$/, '').replace(/\.$/, ''); }
+    rate.value = (f > 0 && t > 0) ? String(+(t / f).toFixed(10)) : '';
   }
-  from.addEventListener('input', calcTo);
-  rate.addEventListener('input', calcTo);
+  from.addEventListener('input', calcRate);
   to.addEventListener('input', calcRate);
   var fa = document.getElementById('fxFromAcc'), ta = document.getElementById('fxToAcc');
   function checkCcy() {
