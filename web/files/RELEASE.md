@@ -62,7 +62,7 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 | Sign out | The sign-out button posts to `?p=logout`, deletes the server session, clears the session cookie and returns to the sign-in page |
 | Letterhead PDF | Generation no longer fails silently when the API storage directory is not writable; the upstream error message is returned as-is |
 | Currencies | The FX rate form can add a currency that is not listed yet by choosing **Other currency** and entering its three-letter code. Once a rate exists the currency appears in every currency selector |
-| Bank accounts | **New bank account** now works: it reuses a free 112x bank account for the currency or creates one, posts the opening balance entry at the latest rate, and marks the first account as primary receiving |
+| Bank accounts | **New bank account** lets you pick an existing 112x bank account; when none is picked the system reuses a free one for the currency or creates it. The list shows each account's GL account, and the first account becomes primary receiving |
 
 ## 1. Artifacts
 

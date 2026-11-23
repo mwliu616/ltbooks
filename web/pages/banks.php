@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
     $r = api_post('/bank-accounts', [
         'name' => trim((string) ($_POST['name'] ?? '')),
         'currency' => $ccy,
+        'accountCode' => trim((string) ($_POST['accountCode'] ?? '')),
         'accountHolder' => trim((string) ($_POST['accountHolder'] ?? '')),
         'bankName' => trim((string) ($_POST['bankName'] ?? '')),
         'bankCode' => trim((string) ($_POST['bankCode'] ?? '')),
@@ -37,6 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
 $r = api_get('/bank-accounts');
 if (!$r['ok']) { echo errbox((string) $r['error']); return; }
 $groups = $r['data']['groups'] ?? [];
+$subs = $r['data']['subaccounts'] ?? [];
+$glNames = [];
+foreach ($r['data']['accounts'] ?? [] as $ba) {
+    $glNames[(int) $ba['account_id']] = (string) ($ba['account_name'] ?? '');
+}
 $formMode = $role !== 'auditor'
     && ((string) ($_GET['new'] ?? '') === '1' || $errMsg !== null);
 
@@ -59,7 +65,9 @@ foreach ($groups as $g) {
           <?= e((string) ($a['bank_code'] ?? '')) ?> · <?= e((string) ($a['swift_code'] ?? '')) ?></td>
         <td style="font-family:var(--mono);font-size:var(--f-2xs)">
           <?= e((string) ($a['account_number'] ?? $a['account_number_masked'] ?? '—')) ?></td>
-        <td><?= e($a['account_code']) ?></td>
+        <td><?= e($a['account_code']) ?>
+          <?php if (!empty($glNames[(int) $a['account_id']])): ?><br>
+            <span class="hint" style="font-size:var(--f-2xs)"><?= e($glNames[(int) $a['account_id']]) ?></span><?php endif; ?></td>
         <td class="num"><?= money($a['current_balance'], (string) $a['currency']) ?></td>
         <td class="num"><?= $a['currency'] === 'HKD' ? '—' : money($a['current_balance_functional'], 'HKD') ?></td>
         <td class="num"><?= $a['last_reval_rate'] === null ? '—' : e((string) $a['last_reval_rate']) ?></td>
@@ -91,6 +99,15 @@ ob_start(); ?>
     </div>
     <div class="field" id="newCcyWrap" style="display:none"><label class="f">新币种代码</label>
       <input type="text" name="newCurrency" maxlength="3" placeholder="GBP" style="text-transform:uppercase"></div>
+    <div class="field"><label class="f">会计科目（112x）</label>
+      <select name="accountCode">
+        <option value="">自动：为该币种新建或复用空闲科目</option>
+        <?php foreach ($subs as $s): ?>
+          <option value="<?= e($s['accountCode']) ?>"<?= !empty($s['used']) ? ' disabled' : '' ?>><?= e($s['accountCode'] . ' · ' . $s['name']) ?><?= !empty($s['used']) ? '（已使用）' : '' ?></option>
+        <?php endforeach; ?>
+      </select>
+      <div class="hint">可人工指定银行子科目；留空则按币种自动匹配（USD→1122 等），没有空闲科目时自动新建</div>
+    </div>
     <div class="field"><label class="f">开户行</label><input type="text" name="bankName"></div>
     <div class="field"><label class="f">银行代码</label><input type="text" name="bankCode" placeholder="004"></div>
     <div class="field"><label class="f">SWIFT</label><input type="text" name="swiftCode" placeholder="HSBCHKHHHKH"></div>
@@ -116,7 +133,7 @@ ob_start(); ?>
     <label style="display:flex;gap:6px;align-items:center;font-size:var(--f-xs)">
       <input type="checkbox" name="isCreditCard" value="1"> 信用卡账户
     </label>
-    <span class="hint">系统会自动为该币种建立会计科目（112x）</span>
+    <span class="hint">未指定科目时，系统会按币种自动匹配或建立 112x 科目</span>
   </div>
 </form>
 <?php echo card('新增银行账户', ob_get_clean(),

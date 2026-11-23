@@ -1847,17 +1847,35 @@ def pending_review():
     return J({"reviews": out})
 
 
+def subaccounts(eid: int):
+    """112x 银行子科目及占用情况，供新建账户时人工选择。"""
+    rows = query(
+        """SELECT a.account_code, a.account_name, a.name_en,
+                  (SELECT COUNT(*) FROM bank_accounts b
+                    WHERE b.entity_id=a.entity_id AND b.account_code=a.account_code) AS used
+             FROM accounts a
+            WHERE a.entity_id=%s AND a.parent_account_code='1120'
+            ORDER BY a.account_code""", (eid,))
+    return [{"accountCode": r["account_code"], "name": r["account_name"],
+             "nameEn": r["name_en"], "used": bool(r["used"])} for r in rows]
+
+
 @app.get("/bank-accounts")
 def bank_accounts():
     e = entity_or_404()
     bb = reports.bank_balances(e["entity_id"])
     rows = query(
-        """SELECT account_id, name, account_holder, currency, account_code, bank_name,
-                  bank_code, swift_code, bank_address, branch, account_number, account_number_masked,
-                  is_credit_card, is_primary_receiving, opening_balance, current_balance,
-                  current_balance_functional, last_reval_rate, last_reval_date, status
-             FROM bank_accounts WHERE entity_id=%s AND status='active'
-             ORDER BY (currency = %s) DESC, currency, account_id""",
+        """SELECT b.account_id, b.name, b.account_holder, b.currency, b.account_code, b.bank_name,
+                  b.bank_code, b.swift_code, b.bank_address, b.branch, b.account_number,
+                  b.account_number_masked, b.is_credit_card, b.is_primary_receiving,
+                  b.opening_balance, b.current_balance, b.current_balance_functional,
+                  b.last_reval_rate, b.last_reval_date, b.status,
+                  a.account_name, a.name_en AS account_name_en
+             FROM bank_accounts b
+             LEFT JOIN accounts a
+               ON a.entity_id=b.entity_id AND a.account_code=b.account_code
+            WHERE b.entity_id=%s AND b.status='active'
+            ORDER BY (b.currency = %s) DESC, b.currency, b.account_id""",
                  (e["entity_id"], e["functional_currency"]))
     # 余额统一取总账：current_balance 只在导流水时维护，期初结转与手工分录不动它，
     # 直接返回会和 /reports/bank-balances 对不上。
@@ -1872,7 +1890,8 @@ def bank_accounts():
         if d["account_id"] in gl_bal:
             d["current_balance"], d["current_balance_functional"] = gl_bal[d["account_id"]]
         out.append(d)
-    return J({"accounts": out, "groups": bb["groups"], "hkdTotal": bb["hkdTotal"], "note": bb["note"]})
+    return J({"accounts": out, "groups": bb["groups"], "hkdTotal": bb["hkdTotal"], "note": bb["note"],
+              "subaccounts": subaccounts(e["entity_id"])})
 
 
 @app.post("/bank-accounts")
@@ -1905,16 +1924,32 @@ def bank_account_create():
     actor = p.get("actor", "system")
     with transaction() as conn:
         with conn.cursor() as cur:
-            # 优先复用该币种下尚未被账户占用的银行科目；都占用时新建一个
-            cur.execute("""SELECT a.account_code FROM accounts a
-                            LEFT JOIN bank_accounts b
-                              ON b.entity_id=a.entity_id AND b.account_code=a.account_code
-                            WHERE a.entity_id=%s AND a.parent_account_code='1120'
-                              AND a.name_en=%s AND b.account_id IS NULL
-                            ORDER BY a.account_code LIMIT 1""",
-                        (eid, f"Bank Account — {ccy}"))
-            row = cur.fetchone()
-            code = row["account_code"] if row else None
+            # 人工指定科目时优先采用；否则复用该币种下空闲的银行科目，都没有才新建
+            sel = str(p.get("accountCode") or "").strip()
+            code = None
+            if sel:
+                cur.execute("""SELECT a.account_code FROM accounts a
+                                WHERE a.entity_id=%s AND a.account_code=%s
+                                  AND a.parent_account_code='1120'""", (eid, sel))
+                if not cur.fetchone():
+                    raise ValueError("所选会计科目不是本实体 1120 下的银行子科目")
+                cur.execute("""SELECT account_id FROM bank_accounts
+                                WHERE entity_id=%s AND account_code=%s LIMIT 1""",
+                            (eid, sel))
+                if cur.fetchone():
+                    raise ValueError("该会计科目已被其他银行账户占用，请另选或留空自动新建")
+                code = sel
+            if not code:
+                cur.execute("""SELECT a.account_code FROM accounts a
+                                LEFT JOIN bank_accounts b
+                                  ON b.entity_id=a.entity_id AND b.account_code=a.account_code
+                                WHERE a.entity_id=%s AND a.parent_account_code='1120'
+                                  AND a.name_en LIKE %s AND b.account_id IS NULL
+                                ORDER BY a.account_code LIMIT 1""",
+                            (eid, f"Bank Account — {ccy}%"))
+            row = cur.fetchone() if not code else None
+            if not code:
+                code = row["account_code"] if row else None
             if not code:
                 cur.execute("""SELECT account_code FROM accounts
                                 WHERE entity_id=%s FOR UPDATE""", (eid,))
