@@ -1875,6 +1875,128 @@ def bank_accounts():
     return J({"accounts": out, "groups": bb["groups"], "hkdTotal": bb["hkdTotal"], "note": bb["note"]})
 
 
+@app.post("/bank-accounts")
+def bank_account_create():
+    """新建银行账户：必要时自动建立 112x 银行科目，并为期初余额生成期初分录。"""
+    require_writer()
+    e = entity_or_404()
+    p = request.get_json(force=True) or {}
+    name = str(p.get("name") or "").strip()
+    ccy = str(p.get("currency") or "").upper().strip()
+    if not name:
+        raise ValueError("账户名称不能为空")
+    if not re.fullmatch(r"[A-Z]{3}", ccy):
+        raise ValueError("币种代码必须是 3 位英文字母，例如 USD")
+    opening, _ = quantize_money(p.get("openingBalance") or 0)
+    if opening is None or opening < 0:
+        raise ValueError("期初余额必须是不小于 0 的数值")
+
+    eid = e["entity_id"]
+    functional = str(e["functional_currency"]).upper()
+    today = date.today()
+    if opening and ccy != functional:
+        fx = _document_fx(e, ccy, today, opening)
+        opening_fx = fx["amount_functional"]
+        rate, rate_date = fx["fx_rate"], fx["fx_rate_date"]
+    else:
+        opening_fx = convert(opening, 1)
+        rate, rate_date = dec(1), today.isoformat()
+
+    actor = p.get("actor", "system")
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            # 优先复用该币种下尚未被账户占用的银行科目；都占用时新建一个
+            cur.execute("""SELECT a.account_code FROM accounts a
+                            LEFT JOIN bank_accounts b
+                              ON b.entity_id=a.entity_id AND b.account_code=a.account_code
+                            WHERE a.entity_id=%s AND a.parent_account_code='1120'
+                              AND a.name_en=%s AND b.account_id IS NULL
+                            ORDER BY a.account_code LIMIT 1""",
+                        (eid, f"Bank Account — {ccy}"))
+            row = cur.fetchone()
+            code = row["account_code"] if row else None
+            if not code:
+                cur.execute("""SELECT account_code FROM accounts
+                                WHERE entity_id=%s FOR UPDATE""", (eid,))
+                used = {r["account_code"] for r in cur.fetchall()}
+                for n in range(1121, 1200):
+                    if str(n) not in used:
+                        code = str(n)
+                        break
+                if not code:
+                    raise ValueError("112x 银行科目已用尽，请先整理会计科目")
+                cur.execute("""SELECT COUNT(*) AS n FROM accounts
+                                WHERE entity_id=%s AND parent_account_code='1120'
+                                  AND name_en LIKE %s""",
+                            (eid, f"Bank Account — {ccy}%"))
+                seq = int(cur.fetchone()["n"]) + 1
+                suffix = f" {seq}" if seq > 1 else ""
+                cur.execute("""INSERT INTO accounts
+                    (account_code, entity_id, account_name, name_zh_cn, name_zh_hk,
+                     name_en, category, fs_line_item, normal_balance, parent_account_code, is_active)
+                    VALUES (%s,%s,%s,%s,%s,%s,'asset','CASH_EQUIVALENTS','debit','1120',1)""",
+                    (code, eid, f"银行账户 — {ccy}{suffix}", f"银行账户 — {ccy}{suffix}",
+                     f"銀行賬戶 — {ccy}{suffix}", f"Bank Account — {ccy}{suffix}"))
+
+            cur.execute("""SELECT account_id FROM bank_accounts
+                            WHERE entity_id=%s AND is_primary_receiving=1
+                              AND status='active' LIMIT 1""", (eid,))
+            primary = 0 if cur.fetchone() else 1
+
+            acct_no = str(p.get("accountNumber") or "").strip() or None
+            masked = ("****" + acct_no[-3:]) if acct_no else None
+            cur.execute("""INSERT INTO bank_accounts
+                (entity_id, name, account_holder, currency, account_code, bank_name,
+                 bank_code, swift_code, account_number, account_number_masked,
+                 is_credit_card, is_primary_receiving, opening_balance,
+                 opening_balance_functional, current_balance, current_balance_functional, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'active')""",
+                        (eid, name,
+                         str(p.get("accountHolder") or "").strip() or e.get("legal_name") or e["entity_name"],
+                         ccy, code, str(p.get("bankName") or "").strip() or None,
+                         str(p.get("bankCode") or "").strip() or None,
+                         str(p.get("swiftCode") or "").strip() or None,
+                         acct_no, masked, 1 if p.get("isCreditCard") else 0, primary,
+                         opening, opening_fx, opening, opening_fx))
+            acct_id = cur.lastrowid
+
+            if opening_fx:
+                from core.numbering import next_no as _next_no
+                entry_no = _next_no(conn, eid, today.isoformat(), "journal")
+                cur.execute("""INSERT INTO journal_entries
+                    (entity_id, entry_no, entry_date, source_type, description, status,
+                     total_debit, total_credit, created_by, retention_until)
+                    VALUES (%s,%s,%s,'opening',%s,'draft',%s,%s,%s,
+                            DATE_ADD(%s, INTERVAL 7 YEAR))""",
+                            (eid, entry_no, today.isoformat(), f"期初余额 — {name}",
+                             opening_fx, opening_fx, actor, today.isoformat()))
+                entry_id = cur.lastrowid
+                cur.execute("""INSERT INTO journal_lines
+                    (entry_id, line_no, account_code, description, debit, credit, ccy,
+                     amount_original, rate, rate_date)
+                    VALUES (%s,1,%s,%s,%s,0,%s,%s,%s,%s)""",
+                            (entry_id, code, f"期初余额 — {name}", opening_fx,
+                             ccy, opening, rate, rate_date))
+                cur.execute("""INSERT INTO journal_lines
+                    (entry_id, line_no, account_code, description, debit, credit, ccy,
+                     amount_original, rate, rate_date)
+                    VALUES (%s,2,'3200',%s,0,%s,%s,%s,1,%s)""",
+                            (entry_id, f"期初余额 — {name}", opening_fx,
+                             functional, opening_fx, rate_date))
+                cur.execute("""UPDATE journal_entries
+                    SET status='posted', posted_by=%s, posted_at=NOW(3)
+                    WHERE entry_id=%s""", (actor, entry_id))
+
+        append_audit(conn, {"entity_id": eid, "actor": actor,
+                            "action": "bank_account.create", "object_type": "bank_accounts",
+                            "object_id": str(acct_id),
+                            "detail": {"name": name, "currency": ccy, "accountCode": code,
+                                       "opening": float(opening),
+                                       "openingFunctional": float(opening_fx)}})
+    return J({"ok": True, "accountId": acct_id, "accountCode": code, "currency": ccy,
+              "openingBalanceFunctional": float(opening_fx)})
+
+
 @app.get("/bank-lines")
 def bank_lines():
     e = entity_or_404()
