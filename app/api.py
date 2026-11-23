@@ -4201,6 +4201,8 @@ def rate_add():
     d = p.get("rateDate")
     if not frm or not to or frm == to:
         raise ValueError("币种不合法：来源与目标必须不同")
+    if not (re.fullmatch(r"[A-Z]{3}", frm) and re.fullmatch(r"[A-Z]{3}", to)):
+        raise ValueError("币种代码必须是 3 位英文字母，例如 USD")
     if rate is None or rate <= 0:
         raise ValueError("汇率必须是大于 0 的数值")
     # 汇率按两位小数保存（7.80 / 1.09 这种）。

@@ -61,6 +61,7 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 | User management | The account page can edit a user (display name, role, status) and delete users. The built-in `admin` account cannot be demoted, disabled or deleted; the signed-in account and the last active administrator are also protected |
 | Sign out | The sign-out button posts to `?p=logout`, deletes the server session, clears the session cookie and returns to the sign-in page |
 | Letterhead PDF | Generation no longer fails silently when the API storage directory is not writable; the upstream error message is returned as-is |
+| Currencies | The FX rate form can add a currency that is not listed yet by choosing **Other currency** and entering its three-letter code. Once a rate exists the currency appears in every currency selector |
 
 ## 1. Artifacts
 

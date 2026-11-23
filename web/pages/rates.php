@@ -7,8 +7,12 @@
 $role = isset($role) ? $role : 'accountant';
 $msg = null; $errMsg = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'add_rate') {
+    $fromCcy = strtoupper(trim((string) ($_POST['fromCcy'] ?? '')));
+    if ($fromCcy === '__NEW__') {
+        $fromCcy = strtoupper(trim((string) ($_POST['newCurrency'] ?? '')));
+    }
     $r = api_post('/fx/rates', [
-        'fromCcy' => strtoupper(trim((string) ($_POST['fromCcy'] ?? ''))),
+        'fromCcy' => $fromCcy,
         'toCcy' => strtoupper(trim((string) ($_POST['toCcy'] ?? ''))),
         'rate' => (float) ($_POST['rate'] ?? 0),
         'rateDate' => (string) ($_POST['rateDate'] ?? ''),
@@ -74,7 +78,14 @@ ob_start(); ?>
           }
       }
       ?>
-      <select name="fromCcy"><?= currency_options($fromDefault) ?></select></div>
+      <select name="fromCcy" id="fromCcySel" onchange="document.getElementById('newCcyWrap').style.display=(this.value==='__NEW__')?'':'none'">
+        <?= currency_options($fromDefault) ?>
+        <option value="__NEW__">其他币种…</option>
+      </select>
+      <div class="hint">清单里没有的币种，选「其他币种…」直接输入三位代码，录入后全站表单即可选用</div>
+    </div>
+    <div class="field" id="newCcyWrap" style="display:none"><label class="f">新币种代码</label>
+      <input type="text" name="newCurrency" maxlength="3" placeholder="USD" style="text-transform:uppercase"></div>
     <div class="field"><label class="f">目标币</label>
       <select name="toCcy"><?= currency_options(base_currency()) ?></select></div>
     <div class="field"><label class="f">汇率</label>
