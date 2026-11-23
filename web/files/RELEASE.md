@@ -65,6 +65,7 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 | Bank accounts | **New bank account** lets you pick an existing 112x bank account; picking one sets the currency from that account, and a mismatched currency is rejected. Blank keeps the reuse-or-create behaviour. The list shows each account's GL account and groups by currency |
 | AI customer intake | On the customer form, upload a business card / registration certificate or paste the text; the AI agent decides company vs individual and fills the empty fields (name, contact, phone, email, address, BR number…) for review before saving |
 | FX maintenance | The rates page has a **Refresh now** button that runs the same ECB/Frankfurter fetch as the daily 09:00 job and reports the date, pair count and currencies written |
+| Cross-currency exchange | **Transfer** now has an **FX exchange** mode: pick the sold and bought accounts, enter the HKD/USD amounts actually dealt (or the bank's rate), optional fee and date. The entry is booked at the bank's real rate, the spread goes to 4410 realised exchange differences and the fee to 6400 bank charges. Two placeholder bank lines keep balances current; after importing the HSBC statement, **Claim lines** replaces them with the real statement lines. An exchange can be voided (entry reversed, lines released). Bank-to-bank transfers in the same currency are unchanged |
 
 ## 1. Artifacts
 

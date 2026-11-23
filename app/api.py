@@ -4370,6 +4370,276 @@ def fx_refresh():
     return J({"ok": True, **out})
 
 
+# ---------------------------------------------------------------- 外币兑换
+def _mid_rate(ccy, d, functional):
+    """取币种到功能货币的中间价；功能货币返回 1。缺汇率直接报错，不估算。"""
+    from core.fx import lookup_rate, normalize_policy
+    from core.service import load_rules
+    if ccy == functional:
+        return dec(1), d
+    policy = normalize_policy(load_rules()["fx_policy"])
+    rates = [dict(r) for r in query(
+        """SELECT rate_date, from_ccy, to_ccy, rate FROM fx_rates
+            WHERE from_ccy=%s AND to_ccy=%s AND rate_date>=DATE_SUB(%s, INTERVAL 10 DAY)
+              AND rate_date<=%s ORDER BY rate_date DESC""",
+        (ccy, functional, d, d))]
+    look = lookup_rate(rates, d, ccy, functional, policy)
+    if not look["ok"]:
+        raise ValueError(f"{ccy} 缺少 {d} 的汇率；请先在汇率维护录入或点「立即更新」")
+    return dec(look["rate"]), look["rateDate"]
+
+
+@app.get("/fx/exchanges")
+def fx_exchanges_list():
+    e = entity_or_404()
+    rows = query("""SELECT x.*, fa.name AS from_name, ta.name AS to_name
+                      FROM fx_exchanges x
+                      JOIN bank_accounts fa ON fa.account_id=x.from_account_id
+                      JOIN bank_accounts ta ON ta.account_id=x.to_account_id
+                     WHERE x.entity_id=%s ORDER BY x.exchange_id DESC LIMIT 50""",
+                 (e["entity_id"],))
+    out = [{"exchangeId": r["exchange_id"], "exchangeNo": r["exchange_no"],
+            "date": r["exchange_date"].isoformat(),
+            "fromAccountId": r["from_account_id"], "toAccountId": r["to_account_id"],
+            "fromName": r["from_name"], "toName": r["to_name"],
+            "fromCurrency": r["from_currency"], "toCurrency": r["to_currency"],
+            "fromAmount": float(dec(r["from_amount"])), "toAmount": float(dec(r["to_amount"])),
+            "dealRate": float(dec(r["deal_rate"])),
+            "fxDiff": float(dec(r["fx_diff_functional"])),
+            "feeAmount": float(dec(r["fee_amount"])), "feeCurrency": r["fee_currency"],
+            "status": r["status"], "entryId": r["entry_id"]} for r in rows]
+    cands = query("""SELECT l.line_id, l.bank_account_id, l.currency, l.amount_original,
+                            l.txn_date, b.name
+                       FROM bank_lines l JOIN bank_accounts b ON b.account_id=l.bank_account_id
+                      WHERE l.entity_id=%s AND l.exchange_id IS NULL
+                        AND l.match_status='unmatched'
+                      ORDER BY l.txn_date DESC, l.line_id DESC LIMIT 100""",
+                  (e["entity_id"],))
+    return J({"exchanges": out, "unmatchedLines": [
+        {"lineId": c["line_id"], "accountId": c["bank_account_id"], "accountName": c["name"],
+         "currency": c["currency"], "amount": float(dec(c["amount_original"])),
+         "date": c["txn_date"].isoformat()} for c in cands]})
+
+
+@app.post("/fx/exchanges")
+def fx_exchange_create():
+    """跨币种兑换：按银行实际成交价入账，点差进 4410 已实现汇兑损益。"""
+    require_writer()
+    e = entity_or_404()
+    p = request.get_json(force=True) or {}
+    actor = str(p.get("actor") or "system")
+    fid, tid = int(p.get("fromAccountId") or 0), int(p.get("toAccountId") or 0)
+    if not fid or not tid or fid == tid:
+        raise ValueError("请选择两个不同的银行账户")
+    fa = query_one("SELECT * FROM bank_accounts WHERE account_id=%s AND entity_id=%s",
+                   (fid, e["entity_id"]))
+    ta = query_one("SELECT * FROM bank_accounts WHERE account_id=%s AND entity_id=%s",
+                   (tid, e["entity_id"]))
+    if not fa or not ta:
+        raise ValueError("银行账户不存在")
+    if fa["currency"] == ta["currency"]:
+        raise ValueError("同币种账户请使用「转账」功能")
+
+    d = str(p.get("date") or date.today().isoformat())
+    from_amt = quantize_money(p.get("fromAmount") or 0)[0]
+    to_amt = quantize_money(p.get("toAmount") or 0)[0]
+    deal = dec(p.get("dealRate") or 0)
+    if not from_amt or from_amt <= 0:
+        raise ValueError("卖出金额必须大于 0")
+    if (not to_amt or to_amt <= 0) and deal > 0:
+        to_amt = quantize_money(from_amt * deal)[0]
+    if not to_amt or to_amt <= 0:
+        raise ValueError("买入金额或成交汇率必须填写")
+    if deal <= 0:
+        deal = (to_amt / from_amt).quantize(dec("0.0000000001"))
+    fee = quantize_money(p.get("feeAmount") or 0)[0] or dec(0)
+    if fee < 0:
+        raise ValueError("手续费不能为负数")
+    fee_code = str(p.get("feeAccountCode") or "6400")
+    if fee > 0 and not query_one("SELECT 1 FROM accounts WHERE entity_id=%s AND account_code=%s",
+                                 (e["entity_id"], fee_code)):
+        raise ValueError("手续费科目不存在")
+
+    functional = e["functional_currency"]
+    m_from, from_date = _mid_rate(fa["currency"], d, functional)
+    m_to, to_date = _mid_rate(ta["currency"], d, functional)
+    src_hkd = quantize_money(from_amt * m_from)[0]
+    tgt_hkd = quantize_money(to_amt * m_to)[0]
+    fee_hkd = quantize_money(fee * m_from)[0]
+    diff = quantize_money(src_hkd - tgt_hkd)[0]  # 正数=损失，负数=收益
+
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            from core.numbering import next_no as _next_no
+            no = _next_no(conn, e["entity_id"], d, "exchange")
+            cur.execute("""INSERT INTO fx_exchanges
+                (entity_id,exchange_no,exchange_date,from_account_id,to_account_id,
+                 from_currency,to_currency,from_amount,to_amount,deal_rate,
+                 mid_rate_from,mid_rate_to,mid_rate_date,fx_diff_functional,
+                 fee_amount,fee_currency,fee_account_code,status,note,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'posted',%s,%s)""",
+                        (e["entity_id"], no, d, fid, tid, fa["currency"], ta["currency"],
+                         from_amt, to_amt, deal, m_from, m_to, to_date, diff,
+                         fee, functional if fee > 0 else None,
+                         fee_code if fee > 0 else None,
+                         str(p.get("note") or "")[:255], actor))
+            xid = cur.lastrowid
+
+            lines = [(ta["account_code"], tgt_hkd, dec(0), ta["currency"], to_amt, m_to, to_date),
+                     (fa["account_code"], dec(0), src_hkd + fee_hkd,
+                      fa["currency"], from_amt + fee, m_from, from_date)]
+            if fee > 0:
+                lines.insert(1, (fee_code, fee_hkd, dec(0), fa["currency"], fee, m_from, from_date))
+            if diff > 0:
+                lines.insert(2, ("4410", diff, dec(0), functional, diff, dec(1), to_date))
+            elif diff < 0:
+                lines.insert(2, ("4410", dec(0), -diff, functional, -diff, dec(1), to_date))
+
+            total_dr = sum((l[1] for l in lines), dec(0))
+            total_cr = sum((l[2] for l in lines), dec(0))
+            cur.execute("""INSERT INTO journal_entries
+                (entity_id,entry_no,entry_date,source_type,source_id,description,status,
+                 report_ready,total_debit,total_credit,created_by,retention_until)
+                VALUES (%s,%s,%s,'fx_exchange',%s,%s,'draft',1,%s,%s,%s,%s)""",
+                        (e["entity_id"], _next_no(conn, e["entity_id"], d, "journal"), d, xid,
+                         f"外币兑换 {no}", total_dr, total_cr, actor,
+                         retention_until(d, d)))
+            entry_id = cur.lastrowid
+            for i, (code, dr, cr, ccy, orig, rate, rdate) in enumerate(lines, start=1):
+                cur.execute("""INSERT INTO journal_lines
+                    (entry_id,line_no,account_code,description,debit,credit,ccy,
+                     amount_original,rate,rate_date)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                            (entry_id, i, code, no, float(dr), float(cr), ccy,
+                             float(orig), float(rate), rdate))
+            cur.execute("""UPDATE journal_entries SET status='posted', posted_by=%s,
+                              posted_at=NOW(3) WHERE entry_id=%s""", (actor, entry_id))
+            cur.execute("UPDATE fx_exchanges SET entry_id=%s WHERE exchange_id=%s",
+                        (entry_id, xid))
+
+            # 两条占位流水：先让余额立刻反映兑换，导入对账单后再认领替换
+            for acct, amt, func, rate, rdate in (
+                    (fa, -(from_amt + fee), -(src_hkd + fee_hkd), m_from, from_date),
+                    (ta, to_amt, tgt_hkd, m_to, to_date)):
+                cur.execute("""INSERT INTO bank_lines
+                    (entity_id,bank_account_id,bank_ref,txn_date,amount_original,currency,
+                     counterparty_name,amount_functional,fx_rate,fx_rate_date,
+                     match_status,matched_type,matched_id,exchange_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending','transfer',%s,%s)""",
+                            (e["entity_id"], acct["account_id"], no, d, float(amt),
+                             acct["currency"], f"外币兑换 {no}", float(func), float(rate), rdate,
+                             xid, xid))
+                recalc_bank_balance(conn, acct["account_id"])
+
+            append_audit(conn, {"entity_id": e["entity_id"], "actor": actor,
+                                "action": "exchange.create", "object_type": "fx_exchanges",
+                                "object_id": str(xid),
+                                "detail": {"exchangeNo": no, "from": fa["currency"],
+                                           "to": ta["currency"], "fromAmount": float(from_amt),
+                                           "toAmount": float(to_amt), "dealRate": float(deal),
+                                           "fxDiff": float(diff), "fee": float(fee)}})
+    return J({"exchangeId": xid, "exchangeNo": no, "entryId": entry_id,
+              "fxDiff": float(diff), "fromAmount": float(from_amt), "toAmount": float(to_amt)})
+
+
+@app.post("/fx/exchanges/<int:xid>/claim")
+def fx_exchange_claim(xid):
+    """把兑换单生成的两条占位流水，换成导入的对账单流水。"""
+    require_writer()
+    e = entity_or_404()
+    p = request.get_json(force=True) or {}
+    actor = str(p.get("actor") or "system")
+    x = query_one("SELECT * FROM fx_exchanges WHERE exchange_id=%s AND entity_id=%s",
+                  (xid, e["entity_id"]))
+    if not x:
+        raise ValueError("兑换单不存在")
+    if x["status"] != "posted":
+        raise ValueError("已作废的兑换单不能认领")
+    placeholders = query("SELECT line_id FROM bank_lines WHERE exchange_id=%s AND match_status='pending'",
+                         (xid,))
+    if not placeholders:
+        raise ValueError("该兑换单已认领流水，无需重复操作")
+
+    def pick(account_id, ccy, amount, d0, wanted):
+        if wanted:
+            row = query_one("""SELECT line_id, bank_account_id, currency, amount_original
+                                 FROM bank_lines WHERE line_id=%s AND entity_id=%s
+                                   AND exchange_id IS NULL AND match_status='unmatched'""",
+                            (wanted, e["entity_id"]))
+            if not row or row["bank_account_id"] != account_id or row["currency"] != ccy:
+                raise ValueError("所选流水与兑换单账户/币种不一致")
+            return row["line_id"]
+        rows = query("""SELECT line_id, amount_original FROM bank_lines
+                         WHERE entity_id=%s AND bank_account_id=%s AND currency=%s
+                           AND exchange_id IS NULL AND match_status='unmatched'
+                           AND txn_date BETWEEN DATE_SUB(%s, INTERVAL 7 DAY)
+                                            AND DATE_ADD(%s, INTERVAL 7 DAY)
+                         ORDER BY ABS(DATEDIFF(txn_date, %s)), line_id""",
+                      (e["entity_id"], account_id, ccy, d0, d0, d0))
+        for r in rows:
+            if abs(dec(r["amount_original"]) - amount) <= dec("0.05"):
+                return r["line_id"]
+        return None
+
+    from_amt = -(dec(x["from_amount"]) + dec(x["fee_amount"]))
+    from_line = pick(x["from_account_id"], x["from_currency"], from_amt, x["exchange_date"],
+                     int(p.get("fromLineId") or 0))
+    to_line = pick(x["to_account_id"], x["to_currency"], dec(x["to_amount"]), x["exchange_date"],
+                   int(p.get("toLineId") or 0))
+    if not from_line or not to_line:
+        raise ValueError("没找到匹配的对账单流水；请先导入 HSBC 对账单，或手工选择流水")
+
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM bank_lines WHERE exchange_id=%s AND match_status='pending'",
+                        (xid,))
+            for lid in (from_line, to_line):
+                cur.execute("""UPDATE bank_lines SET exchange_id=%s, matched_type='transfer',
+                                  matched_id=%s, match_status='matched' WHERE line_id=%s""",
+                            (xid, xid, lid))
+            recalc_bank_balance(conn, x["from_account_id"])
+            recalc_bank_balance(conn, x["to_account_id"])
+            append_audit(conn, {"entity_id": e["entity_id"], "actor": actor,
+                                "action": "exchange.claim", "object_type": "fx_exchanges",
+                                "object_id": str(xid),
+                                "detail": {"exchangeNo": x["exchange_no"],
+                                           "fromLineId": from_line, "toLineId": to_line}})
+    return J({"exchangeId": xid, "claimed": [from_line, to_line]})
+
+
+@app.post("/fx/exchanges/<int:xid>/void")
+def fx_exchange_void(xid):
+    require_writer()
+    e = entity_or_404()
+    p = request.get_json(force=True) or {}
+    actor = str(p.get("actor") or "system")
+    x = query_one("SELECT * FROM fx_exchanges WHERE exchange_id=%s AND entity_id=%s",
+                  (xid, e["entity_id"]))
+    if not x:
+        raise ValueError("兑换单不存在")
+    if x["status"] == "void":
+        raise ValueError("兑换单已作废")
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM bank_lines WHERE exchange_id=%s AND match_status='pending'",
+                        (xid,))
+            cur.execute("""UPDATE bank_lines SET exchange_id=NULL, matched_type=NULL,
+                              matched_id=NULL, match_status='unmatched'
+                            WHERE exchange_id=%s AND match_status='matched'""", (xid,))
+            cur.execute("""UPDATE fx_exchanges SET status='void', voided_by=%s, voided_at=NOW(3)
+                            WHERE exchange_id=%s""", (actor, xid))
+            recalc_bank_balance(conn, x["from_account_id"])
+            recalc_bank_balance(conn, x["to_account_id"])
+            append_audit(conn, {"entity_id": e["entity_id"], "actor": actor,
+                                "action": "exchange.void", "object_type": "fx_exchanges",
+                                "object_id": str(xid),
+                                "detail": {"exchangeNo": x["exchange_no"]}})
+    rev = None
+    if x["entry_id"]:
+        rev = reverse_entry(x["entry_id"], actor, "外币兑换作废")
+    return J({"exchangeId": xid, "status": "void", "reversal": rev})
+
+
 @app.post("/fx/rates")
 def rate_add():
     require_writer()

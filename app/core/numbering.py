@@ -24,6 +24,7 @@ KINDS = {
     "journal": "JE",     # 日记账分录
     "contract": "CT",    # 收入合同
     "reval": "REV",      # 期末重估
+    "exchange": "FX",    # 外币兑换
     "opening": "OPN",    # 期初余额
     "quote": "QT",       # 报价单（不进总账，仅销售流程）
     "credit": "CN",      # 贷记单（红字单）
