@@ -5637,6 +5637,38 @@ def ai_extract():
     return J(data)
 
 
+@app.post("/ai/extract-party")
+def ai_extract_party():
+    """从名片/注册证书/客户资料中识别客户档案字段（只读，不写库）。"""
+    require_writer()
+    e = entity_or_404()
+    p = request.get_json(force=True) or {}
+    text = str(p.get("text") or "").strip()
+    path = str(p.get("path") or "").strip()
+
+    if not text and path:
+        from core.ocr import OCRError, extract_text
+        try:
+            got = extract_text(path)
+        except OCRError as ex:
+            return J({"error": "ocr_error", "message": str(ex)}, 400)
+        text = got.get("text") or ""
+
+    if len(text.strip()) < 6:
+        return J({"error": "ocr_error",
+                  "message": "没有识别到有效文字；请上传清晰的名片/证书，或粘贴资料文本"}, 400)
+
+    from core.ai import AIError, extract_party
+    try:
+        data = extract_party(text)
+    except ValueError as ex:
+        return J({"error": "bad_request", "message": str(ex)}, 400)
+    except AIError as ex:
+        return J({"error": "ai_error", "message": str(ex)}, 503)
+    data["sourceChars"] = len(text)
+    return J(data)
+
+
 @app.post("/ai/analyze-document")
 def ai_analyze_document():
     """单据分析：判断采购/销售、单据类型，推荐科目与借贷方向（只读，不写账）。"""

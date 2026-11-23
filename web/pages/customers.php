@@ -36,6 +36,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
     }
     $errMsg = (string) $r['error'];
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'extract_party') {
+    $payload = ['text' => trim((string) ($_POST['partyText'] ?? ''))];
+    if (!empty($_FILES['partyFile']['tmp_name']) && ($_FILES['partyFile']['error'] ?? 1) === UPLOAD_ERR_OK) {
+        if (($_FILES['partyFile']['size'] ?? 0) > 20 * 1024 * 1024) {
+            $errMsg = '文件超过 20MB';
+        } else {
+            $safe = preg_replace('/[^A-Za-z0-9._-]/', '_', basename((string) $_FILES['partyFile']['name']));
+            $dest = UPLOAD_DIR . '/party-' . date('Ymd') . '-' . bin2hex(random_bytes(6)) . '-' . $safe;
+            if (move_uploaded_file($_FILES['partyFile']['tmp_name'], $dest)) {
+                @chmod($dest, 0640);
+                $payload = ['path' => $dest];
+            } else {
+                $errMsg = '文件落盘失败';
+            }
+        }
+    }
+    if ($errMsg === null && empty($payload['text']) && empty($payload['path'])) {
+        $errMsg = '请上传名片 / 注册证书，或粘贴客户资料文本';
+    }
+    if ($errMsg === null) {
+        $rr = api_post('/ai/extract-party', $payload);
+        if ($rr['ok']) {
+            $_SESSION['party_prefill'] = $rr['data'];
+            $back = (int) ($_POST['editId'] ?? 0) > 0
+                ? '?p=customers&edit=' . (int) $_POST['editId'] . '&ai=1'
+                : '?p=customers&new=1&ai=1';
+            header('Location: ' . $back);
+            exit;
+        }
+        $errMsg = (string) $rr['error'];
+    }
+}
 if ($msg) { echo '<div class="banner PASS"><span class="banner-icon">✓</span><div class="banner-body"><div class="banner-title">操作成功</div><div class="banner-reason">' . e($msg) . '</div></div></div>'; }
 if ($errMsg) { echo errbox($errMsg); }
 
@@ -46,8 +78,35 @@ if ($editId > 0) {
     $er = api_get('/customers/' . $editId);
     if ($er['ok']) { $E = $er['data']; }
 }
+// AI 识别结果只用于回填空字段，已有资料不会被覆盖
+$P = !empty($_SESSION['party_prefill']) ? $_SESSION['party_prefill'] : null;
+unset($_SESSION['party_prefill']);
+if ($P) {
+    $PI = [
+        'customer_type' => ($P['customerType'] ?? 'company') === 'individual' ? 'individual' : 'company',
+        'customer_name' => $P['customerName'] ?? '',
+        'contact_name' => $P['contactName'] ?? '',
+        'contact_title' => $P['contactTitle'] ?? '',
+        'phone' => $P['phone'] ?? '',
+        'mobile' => $P['mobile'] ?? '',
+        'fax' => $P['fax'] ?? '',
+        'email' => $P['email'] ?? '',
+        'website' => $P['website'] ?? '',
+        'tax_id' => $P['taxId'] ?? '',
+        'address' => $P['address'] ?? '',
+        'district' => $P['district'] ?? '',
+        'country' => $P['country'] ?? '',
+        'default_currency' => $P['currency'] ?? '',
+        'payment_terms_days' => $P['paymentTermsDays'] ?? 30,
+        'notes' => $P['notes'] ?? '',
+    ];
+    $E = $E ?: [];
+    foreach ($PI as $k => $v) {
+        if (!isset($E[$k]) || $E[$k] === '' || $E[$k] === null) { $E[$k] = $v; }
+    }
+}
 $formMode = $role !== 'auditor'
-    && ((string) ($_GET['new'] ?? '') === '1' || $editId > 0 || $errMsg !== null);
+    && ((string) ($_GET['new'] ?? '') === '1' || $editId > 0 || $errMsg !== null || $P !== null);
 if (!$formMode):
 [$page, $per] = pager_state('ledu_customers_per', 25);
 $limit  = $per === 0 ? 0 : $per;
@@ -99,12 +158,41 @@ endif;
 
 if ($formMode):
 $ctype = ($E['customer_type'] ?? 'company') === 'individual' ? 'individual' : 'company';
+// AI 识别：上传名片/证书或粘贴资料，结果回填到下面的表单（只填空字段）
+ob_start(); ?>
+<form method="post" enctype="multipart/form-data">
+  <?= csrf_field() ?>
+  <input type="hidden" name="action" value="extract_party">
+  <?php if ($editId > 0): ?><input type="hidden" name="editId" value="<?= (int) $editId ?>"><?php endif; ?>
+  <div class="grid form-grid">
+    <div class="field"><label class="f">上传名片 / 注册证书 / 客户资料</label>
+      <input type="file" name="partyFile" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv">
+      <div class="hint">PDF、图片或文本；扫描件请保持清晰</div></div>
+    <div class="field span-full"><label class="f">或粘贴资料文本</label>
+      <textarea name="partyText" rows="3" placeholder="公司名称、联系人、电话、地址、邮箱、商业登记号…"></textarea></div>
+  </div>
+  <div class="toolbar form-actions" style="margin-top:10px;margin-bottom:0">
+    <button class="btn primary">AI 识别并回填</button>
+    <span class="hint">识别结果只填入空字段，保存前请逐项核对</span>
+  </div>
+</form>
+<?php
+$aiBody = ob_get_clean();
+if ($P) {
+    $conf = (string) ($P['confidence'] ?? 'low');
+    $warn = $P['warnings'] ?? [];
+    $aiBody = '<div class="banner REVIEW" style="margin-bottom:10px"><span class="banner-icon">i</span>'
+        . '<div class="banner-body"><div class="banner-title">识别完成，已回填空字段（置信度 ' . e($conf) . '）</div>'
+        . ($warn ? '<div class="banner-reason">' . e(implode('；', $warn)) . '</div>' : '')
+        . '</div></div>' . $aiBody;
+}
+echo card('AI 识别客户资料', $aiBody);
 ob_start(); ?>
 
 <form method="post" id="edit">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="save_customer">
-  <?php if ($E): ?><input type="hidden" name="customerId" value="<?= (int) $editId ?>"><?php endif; ?>
+  <?php if ($editId > 0): ?><input type="hidden" name="customerId" value="<?= (int) $editId ?>"><?php endif; ?>
   <div class="form-section-title">基本信息</div>
   <div class="grid form-grid">
     <div class="field"><label class="f">客户类型</label>
@@ -142,7 +230,7 @@ ob_start(); ?>
 
   <div class="field" style="margin-top:14px"><label class="f">备注</label>
     <input type="text" name="notes" placeholder="其他需要记录的信息" value="<?= e((string) ($E['notes'] ?? '')) ?>"></div>
-  <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0"><a class="btn" href="?p=customers"><?= e(t('取消')) ?></a><button class="btn primary"><?= e($E ? t('保存修改') : t('新建客户')) ?></button></div>
+  <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0"><a class="btn" href="?p=customers"><?= e(t('取消')) ?></a><button class="btn primary"><?= e($editId > 0 ? t('保存修改') : t('新建客户')) ?></button></div>
 </form>
 <script>
 (function () {
@@ -166,6 +254,6 @@ ob_start(); ?>
 })();
 </script>
 <?php echo str_replace('<section class="card">', '<section class="card" id="new">',
-    card($E ? t('编辑客户') : t('客户信息'), ob_get_clean(),
+    card($editId > 0 ? t('编辑客户') : t('客户信息'), ob_get_clean(),
         '<a class="btn sm" href="?p=customers">' . e(t('返回列表')) . '</a>'));
 endif; ?>

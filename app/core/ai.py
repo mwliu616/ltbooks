@@ -312,6 +312,65 @@ def extract_invoice(text, hints: str = ""):
     return data
 
 
+# ------------------------------------------------------------------ 客户资料
+PARTY_PROMPT = """从下面的名片、公司注册证书、商业登记证、客户资料或往来邮件文本中提取客户档案字段，
+输出 JSON（不要输出其他内容）：
+{
+  "customerType": "company 或 individual；公司填 company，个人名片填 individual",
+  "customerName": "公司注册全称或姓名",
+  "contactName": "联系人姓名或 null",
+  "contactTitle": "职位或 null",
+  "phone": "固定电话或 null",
+  "mobile": "手机或 null",
+  "fax": "传真或 null",
+  "email": "邮箱或 null",
+  "website": "网站或 null",
+  "taxId": "商业登记号/税号/统一社会信用代码或 null",
+  "address": "详细地址，合并为一行或 null",
+  "district": "地区/城市或 null",
+  "country": "国家/地区或 null",
+  "currency": "文本中出现的结算币种代码，如 HKD/USD/CNY，没有则 null",
+  "paymentTermsDays": 付款账期天数数字或 null,
+  "notes": "其他有用信息（品牌、经营范围等）或 null",
+  "confidence": "high/medium/low",
+  "warnings": ["不确定之处"]
+}
+规则：
+- 公司名称优先取注册全称；只有品牌名时保留原文，并在 warnings 说明。
+- 电话与手机分开；无法区分时放 phone。
+- 地址保留原文，不要编造或改写。
+- 找不到的字段填 null，不要猜测；不要编造编号。
+- 没有公司名、只有个人姓名的，customerType 填 individual。"""
+
+
+def extract_party(text):
+    """从名片/注册证书/客户资料文本里抽客户档案字段。"""
+    text = (text or "").strip()
+    if len(text) < 6:
+        raise ValueError("文本太短，无法识别")
+    raw = _llm([{"role": "user", "content": PARTY_PROMPT + "\n\n文本：\n" + text[:8000]}],
+               temperature=0, max_tokens=900, json_mode=True)
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise AIError("模型返回的不是合法 JSON")
+
+    out = {}
+    for k, v in (data or {}).items():
+        if isinstance(v, str):
+            v = v.strip()
+            if v.lower() in ("", "null", "none", "n/a"):
+                v = None
+        out[k] = v
+    if out.get("customerType") not in ("company", "individual"):
+        out["customerType"] = "company"
+    if not out.get("customerName"):
+        raise AIError("没有识别到公司名称或姓名，请换更清晰的资料或手工填写")
+    out["warnings"] = list(out.get("warnings") or [])
+    out["disclaimer"] = DISCLAIMER
+    return out
+
+
 # ------------------------------------------------------------------ PG 分析
 def analyze_review_queue(rows):
     """对当前待复核队列给出处置建议（只读，不改变数据）。"""
