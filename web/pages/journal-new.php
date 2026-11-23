@@ -18,10 +18,20 @@ if ($editId > 0) {
     if (!$editR['ok']) { echo errbox((string) $editR['error']); return; }
     $editing = $editR['data']['entry'] ?? null;
     $editLines = $editR['data']['lines'] ?? [];
-    if (!$editing || (string) ($editing['status'] ?? '') !== 'draft') {
-        echo errbox('只有草稿状态的分录可以编辑；已过账分录请用冲销更正'); return;
+    $__st = (string) ($editing['status'] ?? '');
+    // 草稿可改；已过账的只有手工凭证可改，且所在月份未锁定
+    $__editable = ($__st === 'draft'
+        || ($__st === 'posted' && (string) ($editing['source_type'] ?? '') === 'manual'))
+        && empty($editing['reversal_of_entry_id']);
+    if (!$editing || !$__editable) {
+        echo errbox('这张分录不能修改：已冲销或系统生成的分录请用冲销更正'); return;
+    }
+    if (isset(locked_periods()[(string) ($editing['period'] ?? '')])) {
+        echo errbox('期间 ' . (string) ($editing['period'] ?? '') . ' 已锁定，不能修改'); return;
     }
 }
+
+$isPostedEdit = $editing !== null && (string) ($editing['status'] ?? '') === 'posted';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'create_journal') {
     $lines = [];
@@ -46,7 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
         }
         if ($editing) {
             header('Location: ?p=journal&msg=' . urlencode(
-                '草稿已保存：' . $r['data']['entryNo'] . '，未执行过账'));
+                $isPostedEdit
+                    ? '修改已保存：' . $r['data']['entryNo'] . '（仍为已过账）'
+                    : '草稿已保存：' . $r['data']['entryNo'] . '，未执行过账'));
             exit;
         }
         $msg = '分录已过账：' . $r['data']['entryNo'] . '，借贷各 ' . money($r['data']['totalDebit'], 'HKD');
@@ -114,7 +126,7 @@ $formEntryDate = (string) ($_POST['entryDate'] ?? ($editing['entry_date'] ?? dat
           <select name="currency"><?= currency_options((string) ($_POST['currency'] ?? ($editLines[0]['ccy'] ?? base_currency()))) ?></select>
         </div>
         <div class="field"><label class="f">状态</label>
-          <input type="text" value="<?= $editing ? '草稿（保存不会过账）' : '保存即过账' ?>" readonly style="background:var(--c-surface-alt)">
+          <input type="text" value="<?= $isPostedEdit ? '已过账（保存后仍为已过账）' : ($editing ? '草稿（保存不会过账）' : '保存即过账') ?>" readonly style="background:var(--c-surface-alt)">
         </div>
       </div>
     </div>
@@ -163,10 +175,10 @@ $formEntryDate = (string) ($_POST['entryDate'] ?? ($editing['entry_date'] ?? dat
 
   <div class="card-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
     <a class="btn" href="?p=journal">取消</a>
-    <button class="btn primary" <?= $editing ? 'data-shortcut-save' : 'data-shortcut-post' ?>><?= $editing ? '保存草稿' : '保存并过账' ?></button>
+    <button class="btn primary" <?= $editing ? 'data-shortcut-save' : 'data-shortcut-post' ?>><?= $isPostedEdit ? '保存修改' : ($editing ? '保存草稿' : '保存并过账') ?></button>
   </div>
   <div class="hint" style="margin-top:8px;text-align:right">
-    借贷必须相等；同一行不能同时填借方与贷方；<?= $editing ? '保存草稿不会过账' : '期间锁定后会被数据库拒绝' ?>
+    借贷必须相等；同一行不能同时填借方与贷方；<?= $isPostedEdit ? '保存后仍为已过账，返回列表可查看凭证' : ($editing ? '保存草稿不会过账' : '按月锁定期间后不能再修改') ?>
   </div>
 </form>
 <script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
@@ -236,6 +248,6 @@ $formEntryDate = (string) ($_POST['entryDate'] ?? ($editing['entry_date'] ?? dat
   calc();
 })();
 </script>
-<?php echo card($editing ? '编辑日记账草稿' : '手工日记账分录', ob_get_clean()); ?>
+<?php echo card($isPostedEdit ? '编辑手工凭证' : ($editing ? '编辑日记账草稿' : '手工日记账分录'), ob_get_clean()); ?>
 
 <?php echo inline_account_create_panel(['expense','cogs','asset','liability','equity','revenue'], $newAcc); ?>

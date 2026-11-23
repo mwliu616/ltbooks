@@ -3681,4 +3681,5 @@ return [
     '靛蓝底与柔和紫光点缀，和石墨灰明确区分；适合夜间结账与复核' => 'An indigo background with soft violet accents, clearly distinct from graphite grey; suitable for night-time closing and review',
     '收入合计' => 'Total income',
     '支出合计' => 'Total expenses',
+    '期间已锁定，不能修改' => 'This period is locked; the entry cannot be changed',
 ];

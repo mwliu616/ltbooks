@@ -6483,6 +6483,7 @@ def journal_create_core(p, entry_id=None):
             if missing:
                 raise ValueError("科目不存在：" + "、".join(sorted(set(missing))))
 
+            was_new = entry_id is None
             if entry_id is not None:
                 cur.execute("""SELECT * FROM journal_entries
                                 WHERE entry_id=%s AND entity_id=%s FOR UPDATE""",
@@ -6490,17 +6491,32 @@ def journal_create_core(p, entry_id=None):
                 locked = cur.fetchone()
                 if not locked:
                     raise ValueError("分录不存在")
-                if locked["status"] != "draft":
-                    raise ValueError("只有草稿状态的分录可以编辑；已过账分录请用冲销更正")
+                st = str(locked["status"])
+                if st == "reversed":
+                    raise ValueError("已冲销的分录不能修改，请另行录入更正分录")
+                if locked.get("reversal_of_entry_id"):
+                    raise ValueError("冲销分录不能修改，请直接修改原凭证")
+                if st not in ("draft", "posted"):
+                    raise ValueError(f"分录状态 {st} 不能编辑")
+                # 已过账分录：只允许改手工凭证，系统生成的分录仍走冲销
+                if st == "posted" and str(locked["source_type"]) != "manual":
+                    raise ValueError("系统生成的分录不能直接修改，请用冲销更正")
+                # 按月锁定：原期间或新期间任一锁定/关闭都不允许改
+                cur.execute("""SELECT period, status FROM period_locks
+                                WHERE entity_id=%s AND period IN (%s, %s)""",
+                            (e["entity_id"], str(locked["entry_date"])[:7], entry_date[:7]))
+                for lk in cur.fetchall():
+                    if str(lk["status"]) in ("locked", "closed"):
+                        raise ValueError(f"期间 {lk['period']} 已锁定，不能修改")
                 entry_no = locked["entry_no"]
                 cur.execute("""UPDATE journal_entries SET entry_date=%s, description=%s,
                                   total_debit=%s, total_credit=%s,
                                   retention_until=DATE_ADD(%s, INTERVAL 7 YEAR)
-                                WHERE entry_id=%s AND entity_id=%s AND status='draft'""",
+                                WHERE entry_id=%s AND entity_id=%s""",
                             (entry_date, description, dr, cr, entry_date,
                              entry_id, e["entity_id"]))
                 cur.execute("DELETE FROM journal_lines WHERE entry_id=%s", (entry_id,))
-                status = "draft"
+                status = st
             else:
                 from core.numbering import next_no as _next_no
                 entry_no = _next_no(conn, e["entity_id"], entry_date, "journal")
@@ -6525,13 +6541,13 @@ def journal_create_core(p, entry_id=None):
                             (entry_id, i, code, note or description, d, c,
                              e["functional_currency"], d if d > 0 else c, entry_date))
 
-            if entry_id is not None and status == "posted":
+            if was_new:
                 cur.execute("""UPDATE journal_entries SET status='posted', posted_by=%s,
                                   posted_at=NOW(3) WHERE entry_id=%s""",
                             (p.get("actor", "system"), entry_id))
 
             append_audit(conn, {"entity_id": e["entity_id"], "actor": p.get("actor", "system"),
-                                "action": "journal.update" if status == "draft" else "journal.manual",
+                                "action": "journal.update" if not was_new else "journal.manual",
                                 "object_type": "journal_entries", "object_id": str(entry_id),
                                 "detail": {"entryNo": entry_no, "total": float(dr),
                                            "lines": len(clean), "status": status}})

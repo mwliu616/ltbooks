@@ -95,7 +95,16 @@ ob_start(); ?>
     <a class="btn sm" href="?p=journal-view&amp;id=<?= (int) $x['entry_id'] ?>"><?= e(t('明细')) ?></a>
     <a class="btn sm" href="?p=journal-view&amp;id=<?= (int) $x['entry_id'] ?>#attach"><?= e(t('附件')) ?><?= (int) ($x['file_count'] ?? 0) > 0 ? ' (' . (int) $x['file_count'] . ')' : '' ?></a>
     <a class="btn sm" target="_blank" href="/pdf/voucher.php?id=<?= (int) $x['entry_id'] ?>&amp;lang=<?= e(lang()) ?>"><?= e(t('凭证')) ?></a>
-    <?php if ($role !== 'auditor' && $x['status'] === 'draft'): ?>
+    <?php
+      // 草稿始终可改；已过账的只有手工凭证可改，且所在月份未锁定
+      $__st = (string) $x['status'];
+      $__canEdit = $role !== 'auditor'
+          && ($__st === 'draft'
+              || ($__st === 'posted' && (string) $x['source_type'] === 'manual'))
+          && empty($x['reversal_of_entry_id'])
+          && !isset(locked_periods()[(string) ($x['period'] ?? '')]);
+    ?>
+    <?php if ($__canEdit): ?>
       <a class="btn sm" href="?p=journal-new&amp;edit=<?= (int) $x['entry_id'] ?>"><?= e(t('编辑')) ?></a>
     <?php endif; ?>
   </td>

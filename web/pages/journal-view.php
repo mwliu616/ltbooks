@@ -41,6 +41,12 @@ $lines = $d['lines'] ?? [];
 $status = (string) ($je['status'] ?? '');
 $isDraft = $status === 'draft';
 $isPosted = $status === 'posted';
+$isManual = (string) ($je['source_type'] ?? '') === 'manual';
+$isReversal = !empty($je['reversal_of_entry_id']);
+$periodLocked = isset(locked_periods()[(string) ($je['period'] ?? '')]);
+// 草稿始终可改；已过账的只有手工凭证可改，且所在月份未锁定
+$canEdit = $role !== 'auditor' && !$periodLocked && !$isReversal
+    && ($isDraft || ($isPosted && $isManual));
 
 $field = function (string $k, string $label, string $fmt = 'text') use ($je): string {
     $v = $je[$k] ?? null;
@@ -58,9 +64,11 @@ $field = function (string $k, string $label, string $fmt = 'text') use ($je): st
   <div class="page-actions">
     <a class="btn" href="?p=journal"><?= e(t('返回列表')) ?></a>
     <?= voucher_menu(['id' => $id], t('凭证'), 'btn') ?>
-    <?php if ($isDraft && $role !== 'auditor'): ?>
-      <a class="btn primary" href="?p=journal-new&amp;edit=<?= (int) $id ?>"><?= e(t('编辑草稿')) ?></a>
-      <?= draft_delete_form('journal', $id, 'journal') ?>
+    <?php if ($canEdit): ?>
+      <a class="btn primary" href="?p=journal-new&amp;edit=<?= (int) $id ?>"><?= e($isDraft ? t('编辑草稿') : t('编辑')) ?></a>
+      <?php if ($isDraft): ?><?= draft_delete_form('journal', $id, 'journal') ?><?php endif; ?>
+    <?php elseif ($periodLocked && ($isDraft || ($isPosted && $isManual)) && $role !== 'auditor'): ?>
+      <span class="hint"><?= e(t('期间已锁定，不能修改')) ?></span>
     <?php endif; ?>
     <?php if ($isPosted && $role !== 'auditor'): ?>
       <form method="post" style="display:inline-flex;gap:6px;align-items:center">

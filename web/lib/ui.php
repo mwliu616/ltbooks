@@ -1092,3 +1092,20 @@ function export_matrix(array $items, string $label = '导出', string $cls = 'bt
     }
     return $h . '</div></details>';
 }
+
+/**
+ * 已按月锁定/关闭的期间集合（period => true），页面按需判断能否修改凭证。
+ */
+function locked_periods(): array
+{
+    static $cache = null;
+    if ($cache !== null) { return $cache; }
+    $cache = [];
+    $r = api_get('/period-locks');
+    foreach (($r['data']['locks'] ?? []) as $lk) {
+        if (in_array((string) ($lk['status'] ?? ''), ['locked', 'closed'], true)) {
+            $cache[(string) ($lk['period'] ?? '')] = true;
+        }
+    }
+    return $cache;
+}
