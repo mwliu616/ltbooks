@@ -255,7 +255,7 @@ class StatementRegressionTests(unittest.TestCase):
             docx.side_effect = lambda _report, _charts, path: Path(path).write_bytes(b"PK")
             path = financial_analysis.export_report(report, "docx", directory)
         self.assertLessEqual(len(path.name), 64)
-        self.assertTrue(path.name.startswith("LtBooks-FA-"))
+        self.assertTrue(path.name.startswith("Lt-AI-Books-FA-"))
 
     def test_reclassification_lookup_is_scoped_to_entity(self):
         row = {"account_code": "1100", "account_name": "Contra", "category": "liability",

@@ -4,7 +4,7 @@
  * Copyright (c) 2026 LEDU TECH CO., LIMITED
  * SPDX-License-Identifier: MIT
  */
-/** LtBooks Ver 1.0 — PHP 前端入口（服务端渲染、强制登录、三语界面）。 */
+/** Lt-AI-Books Ver 1.1 — PHP 前端入口（服务端渲染、强制登录、三语界面）。 */
 declare(strict_types=1);
 
 // 业务时区：香港。数据库时间戳仍存 UTC，但单据日期、编号日期按香港本地日算
@@ -488,7 +488,7 @@ function nav_link(string $p, string $label, string $cur, bool $isAuditor, string
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($title) ?> — LtBooks</title>
+<title><?= e($title) ?> — Lt-AI-Books</title>
 <link rel="icon" type="image/png" href="assets/favicon.png?v=<?= @filemtime(__DIR__ . '/assets/favicon.png') ?>">
 <link rel="apple-touch-icon" href="<?= company_logo(192) ?>">
 <link rel="stylesheet" href="assets/app.css?v=<?= @filemtime(__DIR__ . '/assets/app.css') ?>">
@@ -516,10 +516,10 @@ if (isset($_GET['theme']) && array_key_exists((string) $_GET['theme'], theme_pre
       <path d="M2 4h12M2 8h12M2 12h12"/>
     </svg>
   </button>
-  <a class="brand" href="?p=today" title="LtBooks Ver 1.0" aria-label="LtBooks Ver 1.0">
+  <a class="brand" href="?p=today" title="Lt-AI-Books Ver 1.1" aria-label="Lt-AI-Books Ver 1.1">
     <img class="brand-logo" src="<?= e(company_logo(64)) ?>?v=<?= (int) @filemtime(__DIR__ . '/' . company_logo(64)) ?>" alt="LEDU" width="34" height="34">
     <span class="brand-text">
-      <span class="brand-main">Lt<span>Books</span><small>1.0</small></span>
+      <span class="brand-main">Lt<span>-AI-Books</span><small>1.1</small></span>
       <span class="brand-co"><?= e($companyName) ?></span>
     </span>
   </a>
@@ -654,7 +654,7 @@ if (isset($_GET['theme']) && array_key_exists((string) $_GET['theme'], theme_pre
     ?>
 
     <div class="footer-note">
-      <span>LtBooks Ver 1.0 · <?= e($companyName) ?></span><span class="hint">·</span>
+      <span>Lt-AI-Books Ver 1.1 · <?= e($companyName) ?></span><span class="hint">·</span>
       <span class="hint"><?= e(t('数字来自账簿分录，AI 只做建议，记账由你确认')) ?></span>
     </div>
   </main>

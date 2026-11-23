@@ -2,7 +2,7 @@
 # Copyright (c) 2026 LEDU TECH CO., LIMITED
 # SPDX-License-Identifier: MIT
 
-"""LtBooks Ver 1.0 — Python 后端 API（Flask）。
+"""Lt-AI-Books Ver 1.1 — Python 后端 API（Flask）。
 所有写操作在事务内，全部参数化；金额由确定性代码计算。"""
 import hashlib
 import hmac
@@ -198,7 +198,7 @@ def entity_or_404():
 # ------------------------------------------------------------------ 只读
 @app.get("/health")
 def health():
-    return J({"ok": True, "service": "ltbooks-api", "version": "1.0.0"})
+    return J({"ok": True, "service": "ltbooks-api", "version": "1.1"})
 
 
 @app.post("/auth/login")
@@ -3294,6 +3294,18 @@ def agents_run():
     return J(r)
 
 
+@app.post("/agents/precheck")
+def agents_precheck():
+    """人工台提交前预判：对应岗位智能体只审不写，返回结构化结论。"""
+    from core.agents import precheck as pc
+    p = request.get_json(force=True) or {}
+    e = entity_or_404()
+    return J(pc.run(str(p.get("workflow") or ""), dict(p.get("payload") or {}),
+                    entity_id=e["entity_id"], doc_id=p.get("docId"),
+                    actor=str(p.get("actor") or current_role() or "owner"),
+                    lang=str(p.get("lang") or "zh_cn")))
+
+
 @app.get("/agents/runs")
 def agents_runs():
     e = entity_or_404()
@@ -4743,7 +4755,8 @@ def invoice_one(invoice_id):
         if d.get(k) is not None:
             d[k] = float(dec(d[k]))
     d["functional_currency"] = e["functional_currency"]
-    lines = query("""SELECT line_no, item_code, description, unit, quantity, unit_price,
+    lines = query("""SELECT line_no, item_code, description, revenue_account_code,
+                            unit, quantity, unit_price,
                             amount, tax_rate, tax_amount, notes
                        FROM invoice_lines WHERE invoice_id=%s ORDER BY line_no""", (invoice_id,))
     d["lines"] = [{**dict(x),
@@ -4769,7 +4782,7 @@ def bill_one(bill_id):
         if d.get(k) is not None:
             d[k] = float(dec(d[k]))
     d["functional_currency"] = e["functional_currency"]
-    lines = query("""SELECT line_no, item_code, description, unit, quantity, unit_price,
+    lines = query("""SELECT line_no, item_code, description, account_code, unit, quantity, unit_price,
                             amount, tax_rate, tax_amount, notes
                        FROM bill_lines WHERE bill_id=%s ORDER BY line_no""", (bill_id,))
     d["lines"] = [{**dict(x),
@@ -5334,6 +5347,100 @@ def payment_detail(direction, payment_id):
     })
 
 
+@app.get("/payments/<direction>/<int:payment_id>/pdf")
+def payment_voucher_pdf(direction, payment_id):
+    """付款单 / 收款单 PDF；付款单带出供应商的收款银行信息，供汇款或复核。"""
+    from core.pdf import payment_voucher_html, render
+    from flask import send_file
+    e = entity_or_404()
+    if direction not in ("received", "made"):
+        raise ValueError("方向不合法")
+    table = "payments_received" if direction == "received" else "payments_made"
+    p = query_one(f"SELECT * FROM {table} WHERE payment_id=%s AND entity_id=%s",
+                  (payment_id, e["entity_id"]))
+    if not p:
+        raise ValueError("单据不存在")
+
+    if direction == "received":
+        party = query_one("""SELECT customer_name AS n FROM customers WHERE customer_id=%s""",
+                          (p.get("customer_id"),))
+        if not party or not party.get("n"):
+            party = query_one("""SELECT i.supplier_name AS n FROM settlements s
+                                   JOIN invoices i ON i.invoice_id=s.invoice_id
+                                  WHERE s.direction='received' AND s.payment_id=%s
+                                  ORDER BY s.settlement_id LIMIT 1""", (payment_id,))
+        settled = query("""SELECT s.settled_original, s.doc_currency, s.fx_diff_functional,
+                                  i.invoice_no AS doc_no, i.invoice_date AS doc_date,
+                                  i.gross_original AS doc_total, i.settled_original AS doc_settled
+                             FROM settlements s JOIN invoices i ON i.invoice_id=s.invoice_id
+                            WHERE s.direction='received' AND s.payment_id=%s
+                            ORDER BY s.settlement_id""", (payment_id,))
+    else:
+        party = query_one("""SELECT vendor_name AS n FROM vendors WHERE vendor_id=%s""",
+                          (p.get("vendor_id"),))
+        if not party or not party.get("n"):
+            party = query_one("""SELECT b.vendor_name AS n FROM settlements s
+                                   JOIN bills b ON b.bill_id=s.bill_id
+                                  WHERE s.direction='made' AND s.payment_id=%s
+                                  ORDER BY s.settlement_id LIMIT 1""", (payment_id,))
+        settled = query("""SELECT s.settled_original, s.doc_currency, s.fx_diff_functional,
+                                  b.bill_no AS doc_no, b.date AS doc_date,
+                                  b.gross_original AS doc_total, b.settled_original AS doc_settled
+                             FROM settlements s JOIN bills b ON b.bill_id=s.bill_id
+                            WHERE s.direction='made' AND s.payment_id=%s
+                            ORDER BY s.settlement_id""", (payment_id,))
+
+    bank = query_one("""SELECT name, currency, account_number_masked FROM bank_accounts
+                         WHERE account_id=%s""", (p.get("bank_account_id"),))
+    entry = query_one("""SELECT entry_no FROM journal_entries
+                          WHERE entity_id=%s AND source_type=%s
+                            AND source_id=%s ORDER BY entry_id DESC LIMIT 1""",
+                      (e["entity_id"],
+                       "payment_received" if direction == "received" else "payment_made",
+                       payment_id))
+
+    vendor_bank = None
+    if direction == "made":
+        vendor_id = p.get("vendor_id")
+        if not vendor_id:
+            vrow = query_one("""SELECT b.vendor_id FROM settlements s
+                                  JOIN bills b ON b.bill_id=s.bill_id
+                                 WHERE s.direction='made' AND s.payment_id=%s
+                                 ORDER BY s.settlement_id LIMIT 1""", (payment_id,))
+            vendor_id = (vrow or {}).get("vendor_id")
+        if vendor_id:
+            vb = query_one("""SELECT bank_name, bank_account_name, bank_account_no,
+                                     bank_swift, bank_address
+                                FROM vendors WHERE vendor_id=%s""", (vendor_id,))
+            vendor_bank = dict(vb) if vb else None
+
+    def num(v):
+        return float(dec(v)) if v is not None else None
+
+    pay = {
+        "direction": direction, "paymentNo": p["payment_no"], "date": str(p["date"]),
+        "status": p["status"], "amount": num(p["amount"]), "currency": p["currency"],
+        "amountFunctional": num(p["amount_functional"]),
+        "fxRate": num(p["fx_rate_at_payment"]), "fxRateDate": str(p["fx_rate_date"] or ""),
+        "settlementFxDiff": num(p["settlement_fx_diff"]),
+        "party": (party or {}).get("n"),
+        "bank": ({"name": bank["name"], "account": bank["account_number_masked"]}
+                 if bank else None),
+        "entry": ({"entryNo": entry["entry_no"]} if entry else None),
+    }
+    docs = [{"docNo": s["doc_no"], "docDate": str(s["doc_date"]),
+             "documentTotal": num(s["doc_total"]), "documentSettled": num(s["doc_settled"]),
+             "settledOriginal": num(s["settled_original"]), "currency": s["doc_currency"],
+             "fxDiff": num(s["fx_diff_functional"])} for s in settled]
+
+    ent = {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in dict(e).items()}
+    lang = request.args.get("lang") or "zh_cn"
+    html_doc = payment_voucher_html(pay, docs, ent, vendor_bank, lang)
+    path = render(html_doc, f"payment-{p['payment_no']}.pdf")
+    return send_file(str(path), mimetype="application/pdf", as_attachment=False,
+                     download_name=f"{p['payment_no']}.pdf")
+
+
 def payment_update_core(direction: str, payment_id: int, p: dict) -> dict:
     """保存收付款草稿，不执行过账、银行余额或单据已核销金额的变更。"""
     if direction not in ("received", "made"):
@@ -5384,10 +5491,6 @@ def payment_update_core(direction: str, payment_id: int, p: dict) -> dict:
             if not locked or locked["status"] != "draft":
                 raise ValueError("只有草稿状态的收付款单可以编辑")
 
-            id_col = "invoice_id" if direction == "received" else "bill_id"
-            cur.execute(f"""SELECT {id_col}, settled_original FROM settlements
-                             WHERE direction=%s AND payment_id=%s""", (direction, payment_id))
-            old_alloc = {int(x[id_col]): dec(x["settled_original"]) for x in cur.fetchall()}
             cleaned = []
             total_alloc = dec(0)
             same_ccy_total = dec(0)
@@ -5419,8 +5522,7 @@ def payment_update_core(direction: str, payment_id: int, p: dict) -> dict:
                     raise ValueError(f"核销单据 {doc_id} 不存在")
                 if doc["status"] != "posted":
                     raise ValueError(f"{doc['doc_no']} 不是已记账单据，不能核销")
-                outstanding = (dec(doc["gross_original"]) - dec(doc["settled_original"])
-                               + old_alloc.get(doc_id, dec(0)))
+                outstanding = dec(doc["gross_original"]) - dec(doc["settled_original"])
                 if amt > outstanding:
                     raise ValueError(f"核销金额 {amt} 超过 {doc['doc_no']} 未结金额 {outstanding}")
                 doc_rate = dec(doc["fx_rate"] or 1)
@@ -5434,8 +5536,6 @@ def payment_update_core(direction: str, payment_id: int, p: dict) -> dict:
                     cross_func += convert(amt, doc_rate)
                 else:
                     same_ccy_total += amt
-            if total_alloc > amount:
-                raise ValueError("核销金额合计超过收付款金额")
             if convert(same_ccy_total, fx_rate) + cross_func > functional + dec("0.01"):
                 raise ValueError("核销金额折合计价后超过收付款金额")
 
@@ -5507,9 +5607,6 @@ def payment_create_core(p: dict) -> dict:
     allocations = p.get("allocations") or []
     if not allocations:
         raise ValueError("必须至少核销一张单据")
-    total_alloc = sum((dec(a.get("amount")) or dec(0)) for a in allocations)
-    if total_alloc > amount:
-        raise ValueError("核销金额合计超过付款金额")
 
     from core.fx import lookup_rate, normalize_policy
     from core.service import load_rules
@@ -5560,6 +5657,7 @@ def payment_create_core(p: dict) -> dict:
             fx_total = dec(0)
             same_ccy_total = dec(0)
             cross_func = dec(0)
+            settle_rows = []
             for a in allocations:
                 doc_id = int(a.get("docId") or 0)
                 amt = dec(a.get("amount"))
@@ -5572,7 +5670,8 @@ def payment_create_core(p: dict) -> dict:
                                 (doc_id, e["entity_id"]))
                 else:
                     cur.execute("""SELECT bill_id AS invoice_id, currency, gross_original,
-                                          settled_original, amount_functional, fx_rate
+                                          settled_original, amount_functional, fx_rate,
+                                          payable_account_code
                                      FROM bills WHERE bill_id=%s AND entity_id=%s""",
                                 (doc_id, e["entity_id"]))
                 doc = cur.fetchone()
@@ -5585,22 +5684,20 @@ def payment_create_core(p: dict) -> dict:
                     raise ValueError(f"核销金额 {amt} 超过单据未结 {out_std}")
 
                 is_cross = doc_ccy != ccy
-                settle_rate = fx_rate
                 doc_rate = dec(doc["fx_rate"] or 1)
-                # 结算日汇率与单据日汇率不同即产生汇兑差额，与「是否跨币种」无关：
-                # 即便单据与收款同为 USD，只要两次汇率不同，功能货币金额就变了。
-                fx_diff = convert(amt, settle_rate) - convert(amt, doc_rate)
-
-                cur.execute("""INSERT INTO settlements
-                    (entity_id, direction, payment_id, invoice_id, bill_id, settled_original,
-                     doc_currency, bank_currency, is_cross_currency, doc_rate, settle_rate,
-                     fx_diff_functional, created_by)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                            (e["entity_id"], direction, payment_id,
-                             doc_id if direction == "received" else None,
-                             doc_id if direction == "made" else None,
-                             amt, doc_ccy, ccy, 1 if is_cross else 0,
-                             doc_rate, settle_rate, fx_diff, p.get("actor", "system")))
+                doc_func = convert(amt, doc_rate)
+                # 汇兑差额要等「实际付款额在各类单据间的分摊」确定后再算，
+                # 跨币种不能用原币 × 付款币汇率当作该单的结算金额。
+                row = {"doc_id": doc_id, "amt": amt, "doc_ccy": doc_ccy,
+                       "is_cross": is_cross, "doc_rate": doc_rate,
+                       "doc_func": doc_func, "cash_i": dec(0), "fx_diff": dec(0),
+                       "payable_account_code": None}
+                if direction == "made":
+                    # 付款冲减账单开票时确认的应付账款（含外币应付科目）。
+                    row["payable_account_code"] = (
+                        str(doc["payable_account_code"] or "").strip()
+                        or ("2111" if doc_ccy != e["functional_currency"] else "2110"))
+                settle_rows.append(row)
 
                 # 核销即完成银行对账：相关分录纳入财务报表
                 if direction == "received":
@@ -5630,20 +5727,52 @@ def payment_create_core(p: dict) -> dict:
                 # 否则「导入对账单」和「登记收付款」会把同一笔钱算两次。
 
                 settled_total += amt
-                fx_total += fx_diff
-                doc_func_total += convert(amt, dec(doc["fx_rate"] or 1))
+                doc_func_total += doc_func
                 if is_cross:
-                    cross_func += convert(amt, doc_rate)
+                    cross_func += doc_func
                 else:
                     same_ccy_total += amt
 
-            # 上面的金额比较是「原币对原币」，跨币种时并不等价。
-            # 同币种按付款汇率折算、跨币种按单据汇率折算，再与本位币付款额比较；
-            # 同币种只要原币不超付就一定通过，不会因两次汇率不同误判。
-            if convert(same_ccy_total, fx_rate) + cross_func > functional + dec("0.01"):
+            # 核销金额按功能货币比较：同币种按付款汇率、跨币种按单据汇率折算，
+            # 避免原币直接比较在跨币种时误判（例如用少量 USD 支付大额 HKD 账单）。
+            allocated_functional = convert(same_ccy_total, fx_rate) + cross_func
+            if allocated_functional > functional + dec("0.01"):
                 raise ValueError(
-                    f"核销金额折合 {float(convert(same_ccy_total, fx_rate) + cross_func):,.2f} HKD，"
+                    f"核销金额折合 {float(allocated_functional):,.2f} HKD，"
                     f"超过收付款金额 {float(functional):,.2f} HKD")
+            # 多付/预付部分：只有勾选「多付 / 预付」时才把差额挂预付（付）或合同负债（收）；
+            # 否则差额按汇兑损益处理，保证银行流水与账簿一致。
+            unallocated = (functional - allocated_functional
+                           if p.get("amountOverride") else dec(0))
+            if unallocated < 0:
+                unallocated = dec(0)
+
+            # 实际用于核销的功能货币金额，按单据功能价值比例分摊到跨币种单据；
+            # 同币种单据按付款日汇率结算，汇兑差额逐张写入 settlements。
+            cash_functional = functional - unallocated
+            same_cash = convert(same_ccy_total, fx_rate)
+            cross_cash = cash_functional - same_cash
+            for row in settle_rows:
+                if row["is_cross"]:
+                    share = (row["doc_func"] / cross_func) if cross_func else dec(0)
+                    cash_i = cross_cash * share
+                else:
+                    cash_i = convert(row["amt"], fx_rate)
+                row["cash_i"] = cash_i
+                # 结算日实际现金与账面应付/应收（账单日汇率）的差额，
+                # 按 HKAS 21 作为已实现汇兑损益。
+                row["fx_diff"] = cash_i - row["doc_func"]
+                fx_total += row["fx_diff"]
+                cur.execute("""INSERT INTO settlements
+                    (entity_id, direction, payment_id, invoice_id, bill_id, settled_original,
+                     doc_currency, bank_currency, is_cross_currency, doc_rate, settle_rate,
+                     fx_diff_functional, created_by)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                            (e["entity_id"], direction, payment_id,
+                             row["doc_id"] if direction == "received" else None,
+                             row["doc_id"] if direction == "made" else None,
+                             row["amt"], row["doc_ccy"], ccy, 1 if row["is_cross"] else 0,
+                             row["doc_rate"], fx_rate, row["fx_diff"], p.get("actor", "system")))
 
             # 收付款落库后按统一口径重算账户余额
             recalc_bank_balance(conn, acct["account_id"])
@@ -5651,7 +5780,7 @@ def payment_create_core(p: dict) -> dict:
             # 收付款必须进账簿：否则应收账款/应付账款在账上永不减少，
             # 银行余额也不变，报表与业务单据彻底脱节。
             if settled_total > 0:
-                bank_side = convert(settled_total, fx_rate)
+                bank_side = functional - unallocated
                 fx_gain_loss = bank_side - doc_func_total
                 entry_no = _next_no(conn, e["entity_id"], d, "journal")
                 cur.execute("""INSERT INTO journal_entries
@@ -5661,7 +5790,7 @@ def payment_create_core(p: dict) -> dict:
                     (e["entity_id"], entry_no, d,
                      'payment_received' if direction == 'received' else 'payment_made', payment_id,
                      f"{'收款' if direction=='received' else '付款'} {payment_no}",
-                     float(bank_side), float(bank_side), p.get("actor", "system"),
+                     float(functional), float(functional), p.get("actor", "system"),
                      retention_until(d, d)))
                 entry_id = cur.lastrowid
                 # 银行科目跟随所选账户，不能写死 1121——否则美元/人民币账户的
@@ -5669,22 +5798,37 @@ def payment_create_core(p: dict) -> dict:
                 bank_code = str(acct.get("account_code") or "1121")
                 lines = []
                 if direction == "received":
-                    lines.append((bank_code, bank_side, dec(0)))
+                    lines.append((bank_code, functional, dec(0)))
                     lines.append(("1130", dec(0), doc_func_total))
+                    if unallocated > 0:
+                        lines.append(("2120", dec(0), unallocated))   # 合同负债（预收）
+                    if fx_gain_loss != 0:
+                        if fx_gain_loss > 0:
+                            lines.append(("4410", dec(0), fx_gain_loss))
+                        else:
+                            lines.append(("4410", -fx_gain_loss, dec(0)))
                 else:
-                    lines.append(("2110", doc_func_total, dec(0)))
-                    lines.append((bank_code, dec(0), bank_side))
-                if fx_gain_loss != 0:
-                    # 差额进已实现汇兑损益，保证分录借贷相等
-                    if fx_gain_loss > 0:
-                        lines.append(("4410", dec(0), fx_gain_loss))
-                    else:
-                        lines.append(("4410", -fx_gain_loss, dec(0)))
-                for i, (acct, dr, cr) in enumerate(lines, start=1):
+                    # 付款冲减开票时确认的应付账款；账面金额按账单日汇率，
+                    # 结算日实际现金与账面金额的差额进 4410 已实现汇兑损益（HKAS 21）。
+                    # 多付/预付部分另挂 1150 预付款项。
+                    payables = {}
+                    for row in settle_rows:
+                        code = str(row["payable_account_code"] or "2110")
+                        payables[code] = payables.get(code, dec(0)) + row["doc_func"]
+                    for code, debit_amt in payables.items():
+                        lines.append((code, debit_amt, dec(0)))
+                    if fx_total > 0:
+                        lines.append(("4410", fx_total, dec(0)))
+                    elif fx_total < 0:
+                        lines.append(("4410", dec(0), -fx_total))
+                    if unallocated > 0:
+                        lines.append(("1150", unallocated, dec(0)))   # 预付款项
+                    lines.append((bank_code, dec(0), functional))
+                for i, (line_acct, dr, cr) in enumerate(lines, start=1):
                     cur.execute("""INSERT INTO journal_lines
                         (entry_id,line_no,account_code,description,debit,credit,ccy,amount_original,rate,rate_date)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                        (entry_id, i, acct, f"{payment_no}", float(dr), float(cr),
+                        (entry_id, i, line_acct, f"{payment_no}", float(dr), float(cr),
                          ccy, float(settled_total), float(fx_rate), d))
                 cur.execute("""UPDATE journal_entries SET status='posted', posted_by=%s, posted_at=NOW(3),
                                total_debit=%s, total_credit=%s WHERE entry_id=%s""",
@@ -7278,6 +7422,108 @@ def accounts_names():
     return J({"names": names})
 
 
+# 摘要 → 科目建议：关键词规则 + AI 排序，结果只作建议，需人工确认。
+_ACCOUNT_HINTS = [
+    (("办公用品", "文具", "a4", "打印纸", "耗材", "office supplies", "stationery"), "6600", "办公用品/耗材"),
+    (("租金", "房租", "lease", "rent"), "6200", "租金"),
+    (("管理费", "物业管理", "management fee"), "6220", "管理费"),
+    (("水电", "电费", "水费", "utilities"), "6230", "水电费"),
+    (("银行", "手续费", "月费", "charges", "bank fee"), "6400", "银行费用"),
+    (("差旅", "机票", "酒店", "住宿", "travel", "hotel", "flight"), "6500", "差旅"),
+    (("餐饮", "招待", "应酬", "娱乐", "entertainment", "meal"), "6510", "应酬费"),
+    (("交通", "打车", "的士", "地铁", "taxi", "transport"), "6520", "交通费"),
+    (("it", "软件", "云", "vps", "服务器", "邮箱", "hosting", "software", "cloud", "saas"), "6430", "IT 服务"),
+    (("广告", "推广", "营销", "marketing", "advertis"), "6440", "境外销售/推广"),
+    (("保险", "insurance"), "6640", "保险"),
+    (("审计", "核数", "audit"), "6310", "核数费"),
+    (("法律", "律师", "咨询", "顾问", "consult", "legal"), "6320", "法律及咨询费"),
+    (("公司秘书", "秘书", "secretarial"), "6330", "公司秘书费"),
+    (("采购", "货物", "商品", "材料", "purchase", "goods", "inventory"), "5100", "采购成本"),
+    (("服务费", "服务", "service fee", "consulting service"), "5200", "服务成本"),
+]
+
+
+@app.post("/accounts/suggest")
+def accounts_suggest():
+    """根据账单摘要/明细建议费用科目；只返回建议，不写入任何单据。"""
+    require_writer()
+    e = entity_or_404()
+    p = request.get_json(force=True) or {}
+    bits = [str(p.get(k) or "").strip() for k in ("subject", "vendor", "notes")]
+    for ln in (p.get("lines") or []):
+        bits.append(str(ln.get("description") or "").strip())
+    text = " ".join(x for x in bits if x).strip()
+    if len(text) < 2:
+        raise ValueError("请先填写摘要或明细，再获取建议")
+
+    rows = query("""SELECT account_code, name_zh_cn, name_en, category
+                      FROM accounts
+                     WHERE entity_id=%s AND is_active=1
+                       AND category IN ('expense','cogs')
+                     ORDER BY account_code""", (e["entity_id"],))
+    cand = {r["account_code"]: r for r in rows}
+    low = text.lower()
+    rule_hits = []
+    for keys, code, reason in _ACCOUNT_HINTS:
+        if code not in cand:
+            continue
+        hit = next((k for k in keys if k in low), None)
+        if hit:
+            rule_hits.append({"code": code, "confidence": 0.6,
+                              "reason": f"摘要含「{hit}」→ {reason}"})
+
+    ai_hits = []
+    source = "rule" if rule_hits else "none"
+    cfg = {}
+    try:
+        from core.settings import llm_config
+        cfg = llm_config() or {}
+    except Exception:
+        cfg = {}
+    if cfg.get("apiKey") and rows:
+        try:
+            from core.agents import llm as _llm
+            options = "\n".join(
+                f"{r['account_code']} {r['name_zh_cn'] or r['name_en'] or ''}" for r in rows)
+            prompt = (
+                "你是香港会计科目分类助手。根据采购账单摘要，从下列费用/成本科目中"
+                "选出最合适的 1-3 个。只输出 JSON，不要解释："
+                '{"suggestions":[{"code":"6600","confidence":0.8,"reason":"简短理由"}]}\n'
+                f"科目列表：\n{options}\n\n账单摘要：{text[:800]}"
+            )
+            resp = _llm.chat([{"role": "user", "content": prompt}],
+                             json_mode=True, max_tokens=400, temperature=0.1)
+            content = str((resp.get("message") or {}).get("content") or "").strip()
+            if content.startswith("```"):
+                content = content.strip("`")
+                content = content[content.find("{"):]
+            import json as _json
+            data = _json.loads(content)
+            for s in (data.get("suggestions") or [])[:5]:
+                code = str(s.get("code") or "").strip()
+                if code in cand:
+                    ai_hits.append({
+                        "code": code,
+                        "confidence": max(0.0, min(1.0, float(s.get("confidence") or 0.6))),
+                        "reason": str(s.get("reason") or "")[:160] or "AI 建议",
+                    })
+            if ai_hits:
+                source = "ai"
+        except Exception:
+            ai_hits = []
+
+    out, seen = [], set()
+    for s in ai_hits + rule_hits:
+        if s["code"] in seen:
+            continue
+        seen.add(s["code"])
+        r = cand[s["code"]]
+        out.append({**s, "name": r["name_zh_cn"] or r["name_en"] or r["account_code"]})
+        if len(out) >= 3:
+            break
+    return J({"suggestions": out, "source": source, "text": text[:200]})
+
+
 @app.get("/accounts/tree")
 def accounts_tree():
     """科目树：带层级、是否启用、是否已有分录。"""
@@ -7421,10 +7667,10 @@ def email_test():
     from core.mailer import send
     actor = p.get("actor", "system")
     try:
-        r = send(to=to, subject="[LtBooks] SMTP 测试",
-                 body_text="这是一封测试邮件，用于验证 LtBooks 外发通道。\n\n"
+        r = send(to=to, subject="[Lt-AI-Books] SMTP 测试",
+                 body_text="这是一封测试邮件，用于验证 Lt-AI-Books 外发通道。\n\n"
                            f"© {date.today().year} LEDU TECH CO., LIMITED · Released under the MIT License",
-                 body_html="<p>这是一封测试邮件，用于验证 <b>LtBooks</b> 的外发通道。</p>"
+                 body_html="<p>这是一封测试邮件，用于验证 <b>Lt-AI-Books</b> 的外发通道。</p>"
                            '<hr style="border:none;border-top:1px solid #E2E8F0;margin:18px 0 8px">'
                            f'<p style="font-size:12px;color:#94A3B8;margin:0">'
                            f'© {date.today().year} LEDU TECH CO., LIMITED · Released under the MIT License</p>')
@@ -8462,7 +8708,7 @@ def orders_detail(order_id):
     d["functional_currency"] = e["functional_currency"]
     kind = ORDER_KIND[d["direction"]]
     d["kind"] = kind
-    lines = query("""SELECT line_id, line_no, description, unit, quantity, unit_price, amount,
+    lines = query("""SELECT line_id, line_no, description, account_code, unit, quantity, unit_price, amount,
                             tax_rate, tax_amount, done_qty
                        FROM order_lines WHERE order_id=%s ORDER BY line_no""", (order_id,))
     d["lines"] = [{**dict(x),
@@ -8540,6 +8786,7 @@ def orders_create(order_id=None):
         rate = dec(ln.get("taxRate")) if ln.get("taxRate") not in (None, "") else None
         tax = quantize_money(amt * (rate or 0) / 100)[0] if rate else dec(0)
         lines.append({"lineNo": i, "description": desc[:400], "unit": ln.get("unit"),
+                      "accountCode": (str(ln.get("accountCode") or "").strip() or None),
                       "quantity": qty, "unitPrice": price, "amount": amt,
                       "taxRate": rate, "taxAmount": tax})
     if not lines:
@@ -8603,11 +8850,26 @@ def orders_create(order_id=None):
                      str(p.get("notes") or "")[:500] or None, actor, order_date))
                 oid = cur.lastrowid
                 status = "open"
+            codes = sorted({x["accountCode"] for x in lines if x["accountCode"]})
+            if codes:
+                ph = ",".join(["%s"] * len(codes))
+                cur.execute(f"""SELECT account_code, category FROM accounts
+                                 WHERE entity_id=%s AND account_code IN ({ph})""",
+                            (e["entity_id"], *codes))
+                meta = {r["account_code"]: r["category"] for r in cur.fetchall()}
+                missing = [c for c in codes if c not in meta]
+                if missing:
+                    raise ValueError("科目不存在：" + "、".join(missing))
+                allowed_cats = ("revenue",) if direction == "sales" else ("expense", "cogs")
+                bad = [c for c in codes if meta[c] not in allowed_cats]
+                if bad:
+                    label = "收入类" if direction == "sales" else "费用/成本类"
+                    raise ValueError(f"以下科目不是{label}科目：" + "、".join(bad))
             for ln in lines:
                 cur.execute("""INSERT INTO order_lines
-                    (order_id, line_no, description, unit, quantity, unit_price, amount,
-                     tax_rate, tax_amount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                    (oid, ln["lineNo"], ln["description"], ln["unit"],
+                    (order_id, line_no, description, account_code, unit, quantity, unit_price, amount,
+                     tax_rate, tax_amount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (oid, ln["lineNo"], ln["description"], ln["accountCode"], ln["unit"],
                      float(ln["quantity"]), float(ln["unitPrice"]), float(ln["amount"]),
                      float(ln["taxRate"]) if ln["taxRate"] is not None else None,
                      float(ln["taxAmount"])))
@@ -8687,14 +8949,16 @@ def orders_convert(order_id):
         raise ValueError("订单不存在")
     if head["status"] in ("cancelled", "closed"):
         raise ValueError("已取消或已关闭的订单不能转发票")
-    lines = query("""SELECT line_id, description, unit, quantity, unit_price, tax_rate, done_qty
+    lines = query("""SELECT line_id, description, account_code, unit, quantity, unit_price, tax_rate, done_qty
                        FROM order_lines WHERE order_id=%s ORDER BY line_no""", (order_id,))
     use = []
+    fallback_acct = str(p.get("accountCode") or "").strip()
     for ln in lines:
         qty = dec(ln["done_qty"]) if p.get("onlyDone") else dec(ln["quantity"])
         if qty <= 0:
             continue
         use.append({"description": ln["description"], "unit": ln["unit"],
+                    "accountCode": (ln.get("account_code") or fallback_acct or None),
                     "quantity": float(qty), "unitPrice": float(dec(ln["unit_price"])),
                     "taxRate": float(dec(ln["tax_rate"])) if ln["tax_rate"] is not None else None})
     if not use:
@@ -8710,7 +8974,9 @@ def orders_convert(order_id):
             "revenueRecognitionDate": p.get("date") or date.today().isoformat(),
             "dueDate": p.get("dueDate") or None,
             "currency": head["currency"], "lines": use,
-            "revenueAccountCode": p.get("accountCode") or "4100",
+            "revenueAccountCode": (fallback_acct
+                                   or next((x["accountCode"] for x in use if x.get("accountCode")), None)
+                                   or "4100"),
             "actor": actor,
         }, actor)
         doc_id, doc_no = res.get("invoiceId"), res.get("invoiceNo")
@@ -8726,7 +8992,9 @@ def orders_convert(order_id):
             "date": p.get("date") or date.today().isoformat(),
             "dueDate": p.get("dueDate") or None,
             "currency": head["currency"], "lines": use,
-            "expenseAccountCode": p.get("accountCode") or "6200",
+            "expenseAccountCode": (fallback_acct
+                                   or next((x["accountCode"] for x in use if x.get("accountCode")), None)
+                                   or "6600"),
             "actor": actor,
         }, actor)
         doc_id, doc_no = res.get("billId"), res.get("billNo")

@@ -252,7 +252,7 @@ $renderBackupList = static function (array $items, string $emptyText) use ($form
     <form method="post" enctype="multipart/form-data" data-confirm="<?= e(t('上传包会先校验全部文件，再覆盖当前数据。确定继续吗？')) ?>">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="restore_upload">
-      <div class="field"><label class="f"><?= e(t('上传 LtBooks .tar.gz 备份包')) ?></label>
+      <div class="field"><label class="f"><?= e(t('上传 Lt-AI-Books .tar.gz 备份包')) ?></label>
         <input type="file" name="archive" accept=".tar.gz,application/gzip" required>
         <span class="hint"><?= e(t('最大 512MB；恢复前自动创建安全备份，校验失败不会改动当前数据。')) ?></span></div>
       <div class="backup-options">

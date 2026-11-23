@@ -243,3 +243,17 @@ if ($role !== 'auditor' && $rs === 'draft') {
 }
 echo card(t('复核'), ob_get_clean(), $revAct, false); ?>
 
+
+<?php if (($inv['status'] ?? '') === 'draft' && $role !== 'auditor'): ?>
+<div class="pc-box" id="aiPrecheck"></div>
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  if (!window.LeduPrecheck) return;
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', workflow: 'post_invoice', docId: <?= (int) $inv['invoice_id'] ?>,
+    agentLabel: '复核守门人', auto: true
+  });
+})();
+</script>
+<?php endif; ?>

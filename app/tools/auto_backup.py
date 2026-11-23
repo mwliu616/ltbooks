@@ -37,7 +37,7 @@ def _positive_int(value: str) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="LtBooks 数据库与附件备份恢复")
+    parser = argparse.ArgumentParser(description="Lt-AI-Books 数据库与附件备份恢复")
     parser.add_argument("--backup-dir", help="覆盖 LEDU_BACKUP_DIR")
     parser.add_argument(
         "--upload-dir", action="append", dest="upload_dirs",

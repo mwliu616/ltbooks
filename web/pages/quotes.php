@@ -177,7 +177,7 @@ $customers = $custR['ok'] ? ($custR['data']['customers'] ?? []) : [];
     <h2><?= e(t($editing ? '编辑报价单草稿' : '新建报价单')) ?></h2>
     <a class="btn sm" href="?p=quotes">返回列表</a>
   </div>
-  <form method="post" class="card-body" enctype="multipart/form-data">
+  <form method="post" class="card-body" enctype="multipart/form-data" id="quoteForm">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="<?= $editing ? 'quote_update' : 'quote_create' ?>">
     <?php if ($editing): ?><input type="hidden" name="id" value="<?= (int) $editing['quote_id'] ?>"><?php endif; ?>
@@ -305,12 +305,47 @@ $customers = $custR['ok'] ? ($custR['data']['customers'] ?? []) : [];
 
     <?= attach_dropzone('attach', '把客户需求、比价单拖到这里', '或点击选择文件 · 保存后自动挂到这张报价单') ?>
 
+    <div class="pc-box" id="aiPrecheck"></div>
+
     <div class="card-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
       <a class="btn" href="?p=quotes">取消</a>
       <button class="btn primary" type="submit"><?= e(t($editing ? '保存修改' : '保存报价单')) ?></button>
     </div>
   </form>
 </section>
+
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('quoteForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function gather() {
+    var lines = [];
+    var body = document.getElementById('lnBody');
+    if (body) {
+      body.querySelectorAll('tr').forEach(function (tr) {
+        var g = function (sel) { var e = tr.querySelector(sel); return e ? e.value : ''; };
+        var desc = g('input[name="lineDesc[]"]');
+        if (!desc) return;
+        lines.push({description: desc, quantity: g('input[name="lineQty[]"]'),
+                    unitPrice: g('input[name="linePrice[]"]'), discount: g('input[name="lineDisc[]"]'),
+                    taxRate: g('input[name="lineTax[]"]'),
+                    amount: g('input[name="lineAmount[]"]'),
+                    taxAmount: g('input[name="lineTaxAmt[]"]')});
+      });
+    }
+    return {partyName: v('customerName'), quoteDate: v('quoteDate'), currency: v('currency'),
+            subject: v('subject'), lines: lines};
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f, workflow: 'quote', agentLabel: '单据分析', auto: true, collect: gather,
+    ready: function (p) {
+      return p.partyName && p.lines.some(function (l) { return l.description; });
+    }
+  });
+})();
+</script>
 
 <script>
 /* 报价单明细：行金额与整单折扣 */

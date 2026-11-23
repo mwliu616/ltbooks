@@ -85,7 +85,7 @@ if ($result !== null && !isset($result['__error'])) {
     }
 }
 ?>
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="expForm">
   <?= csrf_field() ?>
 <input type="hidden" name="action" value="<?= e($formAction) ?>">
 <div class="zform">
@@ -145,6 +145,8 @@ if ($result !== null && !isset($result['__error'])) {
 
 <?= attach_dropzone('attach', '把小票 / 发票扫描件拖到这里', '或点击选择文件 · 保存后自动挂到这张费用单') ?>
 
+  <div class="pc-box" id="aiPrecheck"></div>
+
 <div class="card-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
   <a class="btn" href="<?= $isEdit ? '?p=doc-view&type=expense&id=' . $editId : '?p=expenses' ?>">取消</a>
   <?php if ($isEdit): ?>
@@ -154,6 +156,26 @@ if ($result !== null && !isset($result['__error'])) {
     <button class="btn primary" name="action_flag" value="draft" data-shortcut-save>保存草稿</button>
   <?php endif; ?>
 </div>
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('expForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function gather() {
+    return {category: v('category'), projectName: v('projectName'),
+            expenseAccountCode: v('expenseAccountCode'), date: v('date'),
+            currency: v('currency'), amount: v('amount'), taxAmount: v('taxAmount'),
+            notes: v('notes'), vendorName: v('vendorName'),
+            receiptPath: f.querySelector('input[type="file"][name="attach[]"]') &&
+                         f.querySelector('input[type="file"][name="attach[]"]').files.length ? 'pending' : ''};
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f, workflow: 'expense', agentLabel: '会计', auto: true, collect: gather,
+    ready: function (p) { return parseFloat(p.amount) > 0 && p.expenseAccountCode; }
+  });
+})();
+</script>
 <script>
 (function () {
   var a = document.querySelector('input[name=amount]'), t = document.querySelector('input[name=taxAmount]'),

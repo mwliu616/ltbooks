@@ -37,6 +37,7 @@ if (!preg_match('#^/reports/(pdf|statements/pdf|statements)#', $path)
     && !preg_match('#^/quotes/\d+/pdf(\?[\w=&%.\-]*)?$#', $path)
     && !preg_match('#^/credit-notes/\d+/pdf(\?[\w=&%.\-]*)?$#', $path)
     && !preg_match('#^/orders/\d+/pdf(\?[\w=&%.\-]*)?$#', $path)
+    && !preg_match('#^/payments/(received|made)/\d+/pdf(\?[\w=&%.\-]*)?$#', $path)
     && !preg_match('#^/company/letterhead/pdf(\?[\w=&%.\-]*)?$#', $path)) {
     http_response_code(400);
     exit($_PT[1]);

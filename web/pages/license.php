@@ -32,7 +32,7 @@ TXT;
 <div class="banner INFO">
   <span class="banner-icon">i</span>
   <div class="banner-body">
-    <div class="banner-title">LtBooks Ver 1.0 · MIT License</div>
+    <div class="banner-title">Lt-AI-Books Ver 1.1 · MIT License</div>
     <div class="banner-reason">
       本系统以 MIT 许可证开源发布：可自由使用、修改、分发、商用，
       但须保留版权声明与许可声明；软件按「现状」提供，不附任何担保。

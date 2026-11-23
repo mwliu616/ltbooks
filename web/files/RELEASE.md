@@ -1,14 +1,35 @@
-# LtBooks 1.0 Release Notes
+# Lt-AI-Books 1.1 Release Notes
 
-Release date: 2026-11-19
-Version: 1.0.0
+Release date: 2026-11-24
+Version: 1.1
 Copyright (c) 2026 LEDU TECH CO., LIMITED
 License: MIT
+
+## 1. Rebranding & version bump, 2026-11-24 (version 1.1)
+
+The product is renamed to **Lt-AI-Books** and the version is bumped to **1.1**.
+No data model change and no migration are required.
+
+### What changed
+
+| Item | Change |
+| --- | --- |
+| Product name | `LtBooks` → `Lt-AI-Books` on every user-visible surface: page titles, login mark, footer, PDFs, outgoing emails, financial analysis reports and release docs. Technical identifiers (PHP constants, the `ltbooks-api` service name, table names, session cookie) are intentionally left unchanged. |
+| Version | `1.0.x` → `1.1` |
+| Sales invoice AI precheck | Fixed HTTP 500 from `POST /agents/precheck` for `workflow=post_invoice`: the invoice lookup referenced a non-existent `customer_name` column; corrected to `supplier_name`. The AI gatekeeper that reviews a sales invoice before posting works again. |
+
+### Verification
+
+End-to-end run of the purchase, sales, bank and accounting flows on both the manual
+desk and the AI desk: every journal entry and every account-balance movement is
+correct. 76/76 assertions pass, covering bank statement posting (income → Dr Bank /
+Cr Revenue; expense → Dr Expense / Cr Bank) and manual journal reversal, plus the
+global debit/credit balance of all posted entries.
 
 ## 0. Maintenance update, 2026-11-21
 
 This update does not change the data model and needs no migration. Packages keep the
-1.0.0 version number.
+1.1 version number.
 
 ### 0.1 Language fixes
 
@@ -68,13 +89,21 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 | Vendor bank details | The supplier form now captures bank name, account name, account number, SWIFT/BIC and bank address; they show on the supplier profile for payment reference |
 | FX maintenance | The rates page has a **Refresh now** button that runs the same ECB/Frankfurter fetch as the daily 09:00 job and reports the date, pair count and currencies written |
 | Cross-currency exchange | **Transfer** now has an **FX exchange** mode: pick the sold and bought accounts and enter the HKD/USD amounts actually dealt; the deal rate is derived and shown read-only, no fee is asked for on the form (bank charges are recorded separately once the statement arrives). The entry is booked at the bank's real rate and the spread goes to 4410 realised exchange differences. Two placeholder bank lines keep balances current; after importing the HSBC statement, **Claim lines** replaces them with the real statement lines. An exchange can be voided (entry reversed, lines released). Bank-to-bank transfers in the same currency are unchanged |
+| Payment voucher PDF | Payment and receipt details now have a **Print / PDF** menu (Simplified Chinese, Traditional Chinese, English). A payment voucher prints the settled documents and the supplier's payee bank details — bank, account name, account number, SWIFT/BIC and bank address — for remittance and review |
+| Payment allocation | The **Register payment** form no longer asks for the amount twice. Tick the documents to settle; each allocation defaults to its outstanding balance and can be edited, and the payment amount is totalled automatically. Cross-currency selections switch the amount to manual entry with a reminder to use the settlement-date rate. **Overpay / prepay** unlocks a higher amount; the unallocated part is posted to 1150 Prepayments (payment) or 2120 Contract Liabilities (receipt) |
+| Cross-currency settlement | Allocation limits are compared in functional currency, so a large HKD bill paid from a smaller USD amount is no longer rejected. Realised exchange differences on payments are derived from the cash actually applied, posted to 4410 with the correct debit or credit side, and stored consistently on the settlements and the payment record |
+| Payment settlement (HKFRS) | Supplier bills are recognised on confirmation as expense/cost plus input tax against trade payables. Settling the payment clears the payable, credits the bank account chosen on the payment, and books the difference between the cash paid and the payable's carrying amount to 4410 as a realised exchange difference under HKAS 21. Overpayments are carried as 1150 prepayments; over-receipts as 2120 contract liabilities |
+| Purchase order line accounts | Each purchase order line now carries its own expense/cost account. Converting the order to a bill keeps those accounts line by line, so a single bill can post to several expense accounts instead of one default account |
+| Sales line revenue accounts | Each sales order and invoice line now carries its own revenue account. Posting an invoice credits each revenue account in proportion to its line amounts (instead of one fixed 4100), and converting a sales order keeps the accounts line by line |
+| AI precheck on manual workflows | Every manual form now runs a pre-submit review by the matching role agent: purchase/sales orders go to the document analyst, bills/invoices/expenses/manual journals to the accountant, payments/receipts to the cashier, and draft posting to the review gatekeeper. The panel shows verdict, findings, suggested accounts and a journal preview; hard checks (account direction, debit/credit balance, locked periods, allocation limits) are deterministic, the model only adds judgement |
+| Account suggestions | The bill form can suggest expense/cost accounts from the subject, vendor and line descriptions. Keyword rules run first and the configured AI model ranks the candidates; suggestions are shown with a reason and are only applied when the user clicks one, so the final account stays a human decision |
 
 ## 1. Artifacts
 
 | Artifact | Path |
 | --- | --- |
-| Automatic package | `releases/LtBooks-Ver1.0-auto-clean-20261123.tar.gz` |
-| Manual package | `releases/LtBooks-Ver1.0-manual-clean-20261123.zip` |
+| Automatic package | `releases/Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz` |
+| Manual package | `releases/Lt-AI-Books-Ver1.1-manual-clean-20261123.zip` |
 | Checksums | Matching `.sha256` file next to each archive |
 | Manifests | `MANIFEST.txt` (per-file SHA-256) and `PACKAGE.json` (variant and counts) |
 | Documentation | `README.md`, `docs/HOWTO.md`, `docs/DEPLOYMENT.md`, `docs/DEPLOYMENT.zh-CN.md`, `docs/DEPLOYMENT.zh-HK.md`, `docs/DEVELOPMENT.md`, `docs/RELEASE.md` |
@@ -89,7 +118,7 @@ the operator.
 
 ### 2.1 Interface, brand and backup
 
-- Product name is LtBooks throughout: browser title, document footer, report footer,
+- Product name is Lt-AI-Books throughout: browser title, document footer, report footer,
   PDF and DOCX footers.
 - The brand area shows the logo, product name and company or period information on
   separate lines.

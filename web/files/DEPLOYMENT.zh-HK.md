@@ -1,4 +1,4 @@
-# LtBooks Ver 1.0 部署指南
+# Lt-AI-Books Ver 1.1 部署指南
 
 > 本文件為繁體中文（香港）版，內容與簡體版《DEPLOYMENT.zh-CN.md》一致；程式碼、指令與環境變數維持原樣。
 
@@ -31,7 +31,7 @@ WeasyPrint 依賴的磁盤空間。
 兩種包結構相同，只有安裝入口不同：
 
 ```
-LtBooks-Ver1.0-<variant>-<date>/
+Lt-AI-Books-Ver1.1-<variant>-<date>/
 ├── install.sh                 自動化安裝入口（auto 包）
 ├── install-manual.sh          人工安裝入口（manual 包）
 ├── backend/                   Python 後端與隨包智能體
@@ -143,8 +143,8 @@ php-fpm8.3 -t
 ### 4.2 部署應用
 
 ```bash
-unzip LtBooks-Ver1.0-manual-clean-<date>.zip
-cd LtBooks-Ver1.0-manual-clean-<date>
+unzip Lt-AI-Books-Ver1.1-manual-clean-<date>.zip
+cd Lt-AI-Books-Ver1.1-manual-clean-<date>
 ./install-manual.sh
 ```
 

@@ -160,7 +160,7 @@ if ($formMode):
 $ctype = ($E['customer_type'] ?? 'company') === 'individual' ? 'individual' : 'company';
 // AI 识别：上传名片/证书或粘贴资料，结果回填到下面的表单（只填空字段）
 ob_start(); ?>
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="aiExtractForm">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="extract_party">
   <?php if ($editId > 0): ?><input type="hidden" name="editId" value="<?= (int) $editId ?>"><?php endif; ?>
@@ -172,10 +172,78 @@ ob_start(); ?>
       <textarea name="partyText" rows="3" placeholder="公司名称、联系人、电话、地址、邮箱、商业登记号…"></textarea></div>
   </div>
   <div class="toolbar form-actions" style="margin-top:10px;margin-bottom:0">
-    <button class="btn primary">AI 识别并回填</button>
+    <button class="btn primary" id="aiExtractBtn">AI 识别并回填</button>
     <span class="hint">识别结果只填入空字段，保存前请逐项核对</span>
   </div>
 </form>
+<div class="pc-box" id="aiExtractProgress" data-state="loading" hidden>
+  <div class="pc-head">
+    <div class="pc-title">AI 识别 <span class="pc-agent">客户资料</span><span class="pc-badge pc-loading-badge">识别中</span></div>
+  </div>
+  <div class="pc-loading">
+    <div class="pc-bar"><span></span></div>
+    <div class="pc-phase">正在上传资料…</div>
+    <div class="pc-elapsed">已耗时 00:00</div>
+  </div>
+</div>
+<script>
+(function () {
+  var form = document.getElementById('aiExtractForm');
+  if (!form) { return; }
+  var box = document.getElementById('aiExtractProgress');
+  var btn = document.getElementById('aiExtractBtn');
+  var phase = box ? box.querySelector('.pc-phase') : null;
+  var elapsed = box ? box.querySelector('.pc-elapsed') : null;
+  var wrap = box ? box.querySelector('.pc-loading') : null;
+  var timer = null, startedAt = 0;
+
+  function fmtTime(s) {
+    s = Math.max(0, Math.floor(s));
+    var m = Math.floor(s / 60), ss = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
+  }
+  // 后端同步识别，前端拿不到真实阶段；按耗时切换文案，让用户知道还在跑。
+  function phaseFor(s) {
+    if (s < 2) { return '正在上传资料…'; }
+    if (s < 6) { return '正在读取文件并识别文字…'; }
+    if (s < 15) { return 'AI 正在提取客户资料…'; }
+    if (s < 35) { return '模型返回较慢，仍在识别中…'; }
+    return '已超过 35 秒，仍在运行，请稍候…';
+  }
+
+  form.addEventListener('submit', function () {
+    var fileEl = form.querySelector('input[type="file"]');
+    var textEl = form.querySelector('textarea[name="partyText"]');
+    var hasFile = !!(fileEl && fileEl.files && fileEl.files.length);
+    var hasText = !!(textEl && textEl.value.trim() !== '');
+    if (!hasFile && !hasText) { return; }   // 无内容时交给后端给出提示，不显示进度
+    if (box) {
+      box.hidden = false;
+      startedAt = Date.now();
+      var tick = function () {
+        var s = (Date.now() - startedAt) / 1000;
+        if (phase) { phase.textContent = phaseFor(s); }
+        if (elapsed) { elapsed.textContent = '已耗时 ' + fmtTime(s); }
+        if (wrap) { wrap.classList.toggle('pc-slow', s >= 20); }
+      };
+      tick();
+      timer = setInterval(tick, 1000);
+      if (box.scrollIntoView) { box.scrollIntoView({ block: 'nearest' }); }
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '识别中…';
+    }
+  });
+
+  // 从浏览器缓存返回时复位，避免按钮一直停在「识别中」。
+  window.addEventListener('pageshow', function () {
+    if (timer) { clearInterval(timer); timer = null; }
+    if (box) { box.hidden = true; }
+    if (btn) { btn.disabled = false; btn.textContent = 'AI 识别并回填'; }
+  });
+})();
+</script>
 <?php
 $aiBody = ob_get_clean();
 if ($P) {

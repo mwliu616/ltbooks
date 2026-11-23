@@ -1,4 +1,4 @@
-# LtBooks 1.0 Deployment Guide
+# Lt-AI-Books 1.1 Deployment Guide
 
 This applies to both release packages: the automatic package and the manual package.
 Both share the same source and installer; they differ in how much system setup they do.
@@ -30,7 +30,7 @@ and WeasyPrint dependencies if OCR and PDF export are used.
 Both packages have the same layout. Only the entry script differs.
 
 ```
-LtBooks-Ver1.0-<variant>-<date>/
+Lt-AI-Books-Ver1.1-<variant>-<date>/
 ├── install.sh                 Automatic installer (auto package)
 ├── install-manual.sh          Manual installer (manual package)
 ├── backend/                   Python backend and bundled agent
@@ -71,7 +71,7 @@ Non-interactive example:
 sudo LTBOOKS_DOMAIN=books.example.com LTBOOKS_SSL_EMAIL=admin@example.com ./install.sh
 ```
 
-The installer stops if the target database already contains LtBooks tables. It does not
+The installer stops if the target database already contains Lt-AI-Books tables. It does not
 overwrite an existing ledger.
 
 Environment variables:
@@ -120,8 +120,8 @@ See section 1.2 of HOWTO for the full Debian/Ubuntu command. Minimum versions:
 ### 4.2 Deploy the application
 
 ```bash
-unzip LtBooks-Ver1.0-manual-clean-<date>.zip
-cd LtBooks-Ver1.0-manual-clean-<date>
+unzip Lt-AI-Books-Ver1.1-manual-clean-<date>.zip
+cd Lt-AI-Books-Ver1.1-manual-clean-<date>
 ./install-manual.sh
 ```
 

@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
         'amount' => (float) ($_POST['amount'] ?? 0),
         'currency' => (string) ($_POST['currency'] ?? 'HKD'),
         'bankAccountId' => (int) ($_POST['bankAccountId'] ?? 0),
+        'amountOverride' => !empty($_POST['amountOverride']),
         'customerId' => (int) ($_POST['customerId'] ?? 0) ?: null,
         'vendorId' => (int) ($_POST['vendorId'] ?? 0) ?: null,
         'allocations' => $allocs,
@@ -102,6 +103,10 @@ if (array_key_exists('alloc', $_POST)) {
         $allocValues[(int) $doc['docId']] = (string) $doc['settledOriginal'];
     }
 }
+// 已保存/已提交的金额大于核销合计时（多付或预付），保留手工金额开关。
+$allocSum = 0.0;
+foreach ($allocValues as $v) { $allocSum += (float) $v; }
+$amountOverridden = (float) $formAmount > $allocSum + 0.004;
 
 // 草稿已引用的单据即使已不在“未结”分页结果中，也必须保留在编辑表单里。
 if ($editing) {
@@ -109,10 +114,9 @@ if ($editing) {
     foreach ($docs as $i => $doc) { $docIndexes[(int) $doc['docId']] = $i; }
     foreach (($editing['documents'] ?? []) as $allocated) {
         $docId = (int) $allocated['docId'];
-        $own = (float) $allocated['settledOriginal'];
         if (isset($docIndexes[$docId])) {
             $i = $docIndexes[$docId];
-            $docs[$i]['outstanding'] = (float) $docs[$i]['outstanding'] + $own;
+            // 草稿核销不写回账单已核销额，未结额本身已含这张草稿，不能再加回自己。
             if (empty($docs[$i]['party'])) { $docs[$i]['party'] = $editing['party'] ?? ''; }
             continue;
         }
@@ -123,7 +127,7 @@ if ($editing) {
             'party' => $editing['party'] ?? '',
             'currency' => $allocated['currency'],
             'outstanding' => (float) $allocated['documentTotal']
-                           - (float) $allocated['documentSettled'] + $own,
+                           - (float) $allocated['documentSettled'],
         ];
         $oTotal++;
     }
@@ -143,7 +147,7 @@ if (!$fixedDir) {
 <?php if ($role === 'auditor'): ?>
   <?= empty_state('审计角色不可录入收付款') ?>
 <?php else: ?>
-<form method="post">
+<form method="post" id="paymentForm">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="create_payment">
   <input type="hidden" name="direction" value="<?= e($direction) ?>">
@@ -154,9 +158,12 @@ if (!$fixedDir) {
         : doc_no_field($isCashIn ? '收款编号（自动）' : '付款编号（自动）',
                        next_doc_no($formDate, $isCashIn ? 'receipt' : 'payment')) ?>
     <div class="field"><label class="f">日期</label><input type="date" name="date" value="<?= e($formDate) ?>" required></div>
-    <div class="field"><label class="f">金额</label><input type="number" step="0.01" min="0.01" name="amount" value="<?= e($formAmount) ?>" required></div>
+    <div class="field"><label class="f">金额</label><input type="number" step="0.01" min="0" name="amount" id="payAmount" value="<?= e($formAmount) ?>" required title="金额由下方核销额自动合计">
+      <label class="hint" style="display:flex;align-items:center;gap:6px;margin-top:4px;cursor:pointer">
+        <input type="checkbox" id="amountOverride" name="amountOverride" value="1"<?= $amountOverridden ? ' checked' : '' ?>> 多付 / 预付（金额可大于核销合计）
+      </label></div>
     <div class="field"><label class="f">币种</label>
-      <select name="currency"><?= currency_options($formCurrency) ?></select></div>
+      <select name="currency" id="payCurrency"><?= currency_options($formCurrency) ?></select></div>
     <div class="field"><label class="f">银行账户</label>
       <select name="bankAccountId" required>
         <?php foreach ($accounts as $a): ?>
@@ -188,44 +195,87 @@ if (!$fixedDir) {
               ['p' => $listPage, 'q' => $kw ?: null, 'edit' => $editId ?: null], '', 'o') ?>
       <?php endif; ?>
     </div>
-    <form method="get" class="toolbar" style="margin-top:8px;margin-bottom:0">
-      <input type="hidden" name="p" value="<?= e($listPage) ?>">
-      <?php if ($editId): ?><input type="hidden" name="edit" value="<?= $editId ?>"><?php endif; ?>
-      <?php if ($kw !== ''): ?><input type="hidden" name="q" value="<?= e($kw) ?>"><?php endif; ?>
-      <input type="text" name="oq" value="<?= e($oKw) ?>" placeholder="<?= e(t('搜索待核销单据号 / 往来单位')) ?>" style="width:320px">
-      <button class="btn sm">搜索</button>
+    <div class="toolbar" style="margin-top:8px;margin-bottom:0">
+      <input type="hidden" name="p" value="<?= e($listPage) ?>" form="openDocsSearch">
+      <?php if ($editId): ?><input type="hidden" name="edit" value="<?= $editId ?>" form="openDocsSearch"><?php endif; ?>
+      <?php if ($kw !== ''): ?><input type="hidden" name="q" value="<?= e($kw) ?>" form="openDocsSearch"><?php endif; ?>
+      <input type="text" name="oq" value="<?= e($oKw) ?>" placeholder="<?= e(t('搜索待核销单据号 / 往来单位')) ?>" style="width:320px" form="openDocsSearch">
+      <button class="btn sm" form="openDocsSearch">搜索</button>
       <?php if ($oKw !== ''): ?><a class="btn sm" href="?p=<?= e($listPage) ?><?= $editId ? '&amp;edit=' . $editId : '' ?>">清除</a><?php endif; ?>
       <span class="hint"><?= e(str_replace('{n}', (string) num($oTotal), t('共 {n} 张未结'))) ?></span>
-    </form>
+    </div>
     <?php if (!$docs): ?>
       <div class="hint" style="margin-top:6px">没有未结单据。</div>
     <?php else: ?>
       <div class="table-wrap" style="margin-top:6px"><table>
-      <thead><tr><th>单据</th><th><?= $isCashIn ? '客户' : '供应商' ?></th><th>日期</th>
+      <thead><tr><th style="width:36px"></th><th>单据</th><th><?= $isCashIn ? '客户' : '供应商' ?></th><th>日期</th>
       <th>币种</th><th class="num">未结金额</th><th>本方核销额</th><th style="width:72px"></th></tr></thead>
       <tbody>
       <?php foreach ($docs as $d): ?>
-        <tr><td class="mono"><?= e((string) $d['docNo']) ?></td>
+        <tr data-doc-ccy="<?= e((string) $d['currency']) ?>">
+        <td><input type="checkbox" class="alloc-pick" aria-label="核销 <?= e((string) $d['docNo']) ?>"<?= (float) ($allocValues[(int) $d['docId']] ?? 0) > 0 ? ' checked' : '' ?>></td>
+        <td class="mono"><?= e((string) $d['docNo']) ?></td>
         <td><?= e((string) ($d['party'] ?: '—')) ?></td>
         <td><?= e((string) $d['docDate']) ?></td>
         <td><?= e((string) $d['currency']) ?></td>
         <td class="num"><?= money($d['outstanding'], (string) $d['currency']) ?></td>
         <td><input type="number" step="0.01" min="0" max="<?= e((string) $d['outstanding']) ?>"
-             name="alloc[<?= (int) $d['docId'] ?>]" value="<?= e($allocValues[(int) $d['docId']] ?? '0') ?>" style="width:140px"></td>
+             name="alloc[<?= (int) $d['docId'] ?>]" value="<?= e($allocValues[(int) $d['docId']] ?? '0') ?>"
+             class="alloc-amt" data-outstanding="<?= e((string) $d['outstanding']) ?>" style="width:140px"></td>
         <td><a class="btn sm doc-peek" href="#"
               data-type="<?= $isCashIn ? 'invoice' : 'bill' ?>"
               data-id="<?= (int) $d['docId'] ?>">查看</a></td></tr>
       <?php endforeach; ?>
       </tbody></table></div>
-      <div class="hint" style="margin-top:6px">核销合计不得超过付款金额；跨币种时按结算日汇率计算汇兑差额并计入损益。</div>
+      <div class="hint" style="margin-top:6px">勾选要核销的单据，核销额默认等于未结余额（可改）；金额按核销额自动合计。跨币种时按结算日汇率计算汇兑差额并计入损益。</div>
+      <div class="hint" id="amountCrossHint" style="margin-top:6px;display:none;color:var(--c-warn,#a15c00)">含其他币种的单据：请按结算日汇率手工填写上方<?= $isCashIn ? '收款' : '付款' ?>金额。</div>
     <?php endif; ?>
   </div>
+
+  <div class="pc-box" id="aiPrecheck"></div>
 
   <div class="toolbar form-actions" style="margin-top:12px;margin-bottom:0">
     <?php if ($editing): ?><a class="btn" href="?p=<?= e($listPage) ?>">取消</a><?php endif; ?>
     <button class="btn primary" <?= !$editing && !$docs ? 'disabled' : '' ?> data-shortcut-save><?= $editing ? '保存草稿' : '登记并核销' ?></button>
   </div>
 </form>
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('paymentForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function selText(el) {
+    return el && el.selectedIndex >= 0 ? String(el.options[el.selectedIndex].text || '').trim() : '';
+  }
+  function gather() {
+    var bank = f.querySelector('select[name="bankAccountId"]');
+    var party = f.querySelector('select[name="vendorId"]') || f.querySelector('select[name="customerId"]');
+    var allocs = [];
+    f.querySelectorAll('input[name^="alloc["]').forEach(function (el) {
+      var amt = parseFloat(el.value);
+      if (isFinite(amt) && amt > 0) {
+        var m = el.name.match(/\[(\d+)\]/);
+        allocs.push({docId: m ? parseInt(m[1], 10) : 0, amount: amt});
+      }
+    });
+    var out = {date: v('date'), amount: v('amount'), currency: v('currency'),
+               bankAccountId: bank ? bank.value : '', bankName: selText(bank),
+               allocations: allocs};
+    if (party && party.name === 'vendorId') { out.vendorId = party.value; out.vendorName = selText(party); }
+    if (party && party.name === 'customerId') { out.customerId = party.value; out.customerName = selText(party); }
+    return out;
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f,
+    workflow: <?= json_encode($isCashIn ? 'receipt' : 'payment') ?>,
+    agentLabel: '出纳', auto: true, collect: gather,
+    ready: function (p) { return parseFloat(p.amount) > 0 && p.bankAccountId; }
+  });
+})();
+</script>
+<!-- 待核销单据搜索：独立表单，用 form 属性挂接，避免与外层登记表单嵌套 -->
+<form id="openDocsSearch" method="get"></form>
 <?php endif; ?>
 <?php echo card($editing ? ($isCashIn ? '编辑收款草稿' : '编辑付款草稿') : ($isCashIn ? '登记收款' : '登记付款'), ob_get_clean()); ?>
 
@@ -415,4 +465,66 @@ document.querySelectorAll('.doc-peek').forEach(function (a) {
     loadDoc(a.dataset.type, a.dataset.id);
   });
 });
+
+// 金额默认按核销额自动合计；勾选「多付/预付」或含跨币种单据时才手工填写。
+(function () {
+  var amount = document.getElementById('payAmount');
+  var ccySel = document.getElementById('payCurrency');
+  var overrideBox = document.getElementById('amountOverride');
+  var crossHint = document.getElementById('amountCrossHint');
+  var submitBtn = document.querySelector('[data-shortcut-save]');
+  var trs = Array.prototype.slice.call(document.querySelectorAll('tr[data-doc-ccy]'));
+  if (!amount || !ccySel || !trs.length) return;
+  var initial = true, wasCross = false;
+
+  function sync() {
+    var ccy = ccySel.value;
+    var sum = 0, picked = 0, cross = false;
+    trs.forEach(function (tr) {
+      var cb = tr.querySelector('.alloc-pick');
+      var inp = tr.querySelector('.alloc-amt');
+      if (!cb || !inp) return;
+      var v = parseFloat(inp.value) || 0;
+      cb.checked = v > 0;
+      if (v <= 0) return;
+      picked++;
+      sum += v;
+      if (tr.dataset.docCcy !== ccy) cross = true;
+    });
+    if (submitBtn) submitBtn.disabled = picked === 0;
+    var manual = cross || (overrideBox && overrideBox.checked);
+    if (manual) {
+      amount.readOnly = false;
+      // 同币种切到跨币种时，原来的合计已无意义，清空避免误提交；
+      // 编辑已保存的跨币种草稿（首次渲染）保留原金额。
+      if (cross && !wasCross && !initial) amount.value = '';
+      if (crossHint) crossHint.style.display = cross ? '' : 'none';
+    } else {
+      amount.readOnly = true;
+      amount.value = picked ? sum.toFixed(2) : '';
+      if (crossHint) crossHint.style.display = 'none';
+    }
+    wasCross = cross;
+    initial = false;
+  }
+
+  trs.forEach(function (tr) {
+    var cb = tr.querySelector('.alloc-pick');
+    var inp = tr.querySelector('.alloc-amt');
+    if (!cb || !inp) return;
+    cb.addEventListener('change', function () {
+      if (cb.checked) {
+        var out = parseFloat(inp.dataset.outstanding) || 0;
+        inp.value = out ? out.toFixed(2) : '';
+      } else {
+        inp.value = '0';
+      }
+      sync();
+    });
+    inp.addEventListener('input', sync);
+  });
+  ccySel.addEventListener('change', sync);
+  if (overrideBox) overrideBox.addEventListener('change', sync);
+  sync();
+})();
 </script>

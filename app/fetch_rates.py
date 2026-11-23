@@ -39,7 +39,7 @@ def fetch(rate_date=None):
     url = API.format(base=BASE)
     if rate_date:
         url = f"https://api.frankfurter.dev/v1/{rate_date}?base={BASE}"
-    req = urllib.request.Request(url, headers={"User-Agent": "LtBooks/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Lt-AI-Books/1.1"})
     with urllib.request.urlopen(req, timeout=25) as r:
         return json.load(r)
 

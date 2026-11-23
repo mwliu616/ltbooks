@@ -115,15 +115,18 @@ if ($billIsForeign) {
     $billInfo[] = ['折合功能货币', $billGrossFunctional !== null ? money($billGrossFunctional, $billFunctional) : '— ' . e($billFunctional)];
     $billInfo[] = ['汇率', $billRateText];
 }
+$billLineAccounts = array_values(array_unique(array_filter(
+    array_map(static fn ($l): string => (string) ($l['account_code'] ?? ''), (array) ($bill['lines'] ?? [])))));
 $billInfo = array_merge($billInfo, [
-  ['费用科目', e((string) ($bill['expense_account_code'] ?: ''))],
+  ['费用科目', e($billLineAccounts ? '按明细行（' . implode('、', $billLineAccounts) . '）'
+                                  : (string) ($bill['expense_account_code'] ?: ''))],
   ['校验', badge((string) ($bill['checkStatus'] ?? 'PASS'))],
   ['状态', status_pill((string) $bill['status'])],
 ]);
 ob_start(); ?>
 <?= kv_grid($billInfo) ?>
 <div class="hint" style="margin-top:10px">
-  记账方向：借 <?= e((string) $bill['expense_account_code']) ?>（费用）＋ 借 1160（进项税额）
+  记账方向：借 <?= $billLineAccounts ? '各明细行费用科目' : e((string) $bill['expense_account_code']) ?>（费用）＋ 借 1160（进项税额）
   → 贷 2110（应付账款）。这是支出，不是收入。
 </div>
 <?php
@@ -142,6 +145,7 @@ if ($billLines):
 ob_start(); ?>
 <div class="table-wrap"><table>
 <thead><tr><th style="width:56px" class="num">编码</th><th>项目 / 内容</th>
+<th style="width:110px">费用科目</th>
 <th style="width:70px">单位</th><th class="num" style="width:84px">数量</th>
 <th class="num" style="width:110px">单价</th><th class="num" style="width:80px">税率</th>
 <th class="num" style="width:120px">合价</th><th style="width:160px">备注</th></tr></thead>
@@ -151,6 +155,7 @@ ob_start(); ?>
   <tr>
     <td class="num hint"><?= (int) $ln['line_no'] ?></td>
     <td><?= e((string) $ln['description']) ?></td>
+    <td class="mono hint"><?= e((string) ($ln['account_code'] ?? '')) ?></td>
     <td class="hint"><?= e((string) ($ln['unit'] ?: '—')) ?></td>
     <td class="num"><?= e(rtrim(rtrim(number_format((float) $ln['quantity'], 4, '.', ','), '0'), '.')) ?></td>
     <td class="num"><?= money($ln['unit_price'], (string) $bill['currency']) ?></td>
@@ -161,7 +166,7 @@ ob_start(); ?>
 <?php endforeach; ?>
 </tbody>
 <tfoot><tr>
-  <td colspan="6" class="num hint">合计</td>
+  <td colspan="7" class="num hint">合计</td>
   <td class="num"><b><?= money($sumAmt, (string) $bill['currency']) ?></b></td>
   <td></td>
 </tr></tfoot></table></div>
@@ -230,3 +235,17 @@ $rsCls = ['draft' => 'st-draft', 'pending' => 'st-review', 'approved' => 'st-pas
 </form>
 <?php endif; ?>
 <?php echo card('复核', ob_get_clean(), '', false); ?>
+
+<?php if (($bill['status'] ?? '') === 'draft' && $role !== 'auditor'): ?>
+<div class="pc-box" id="aiPrecheck"></div>
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  if (!window.LeduPrecheck) return;
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', workflow: 'post_bill', docId: <?= (int) $bill['bill_id'] ?>,
+    agentLabel: '复核守门人', auto: true
+  });
+})();
+</script>
+<?php endif; ?>

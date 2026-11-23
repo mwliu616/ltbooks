@@ -197,7 +197,7 @@ ob_start(); ?>
              placeholder="<?= !empty($sc['hasPassword']) ? e(t('已设置，留空表示不修改')) : e(t('填写邮箱授权码')) ?>">
       <span class="hint"><?= e(t('多数邮箱要填「授权码」而不是登录密码；留空不修改')) ?></span></div>
     <div class="field"><label class="f"><?= e(t('发件人显示名')) ?></label>
-      <input type="text" name="smtpFromName" value="<?= e((string) (($sc['fromName'] ?? '') !== '' ? $sc['fromName'] : 'LtBooks')) ?>">
+      <input type="text" name="smtpFromName" value="<?= e((string) (($sc['fromName'] ?? '') !== '' ? $sc['fromName'] : 'Lt-AI-Books')) ?>">
       <span class="hint"><?= e(t('收件人看到的发件人名称')) ?></span></div>
   </div>
   <div class="toolbar form-actions" style="margin-top:14px;margin-bottom:0">

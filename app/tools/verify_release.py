@@ -111,8 +111,8 @@ def verify(path: Path) -> dict:
             raise ValueError(f"Missing required files: {missing}")
 
         metadata = json.loads(archive.read("PACKAGE.json"))
-        if metadata.get("product") != "LtBooks" or metadata.get("clean") is not True:
-            raise ValueError("PACKAGE.json does not identify a clean LtBooks package")
+        if metadata.get("product") != "Lt-AI-Books" or metadata.get("clean") is not True:
+            raise ValueError("PACKAGE.json does not identify a clean Lt-AI-Books package")
 
         manifest: dict[str, str] = {}
         for raw in archive.read("MANIFEST.txt").decode("utf-8").splitlines():

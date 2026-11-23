@@ -1,4 +1,4 @@
-# LtBooks 1.0 Developer Guide
+# Lt-AI-Books 1.1 Developer Guide
 
 This document describes the code layout, request flow, data rules and release process.
 

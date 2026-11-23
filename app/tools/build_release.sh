@@ -14,7 +14,7 @@ set -euo pipefail
 
 BACKEND="${LTBOOKS_BACKEND:-/opt/ltbooks/app}"
 FRONTEND="${LTBOOKS_FRONTEND:-/opt/ltbooks/web}"
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.1}"
 DATE="$(TZ=Asia/Shanghai date +%Y%m%d)"
 DEST="${RELEASE_DIR:-$FRONTEND/files/releases}"
 DB_NAME="${LTBOOKS_BUILD_DB:-ltbooks}"
@@ -22,7 +22,7 @@ WORK="$(mktemp -d)"
 COMMON="$WORK/common"
 trap 'rm -rf "$WORK"' EXIT
 
-printf '==> Preparing LtBooks %s clean source (%s)\n' "$VERSION" "$DATE"
+printf '==> Preparing Lt-AI-Books %s clean source (%s)\n' "$VERSION" "$DATE"
 mkdir -p "$COMMON"/{backend,frontend,sql,docs} "$DEST"
 
 # Copy the actual reviewed working tree. Runtime files, credentials, old docs,
@@ -102,7 +102,7 @@ build_variant() {
     *) printf 'Unknown variant: %s\n' "$variant" >&2; return 1 ;;
   esac
 
-  printf '{"product":"LtBooks","version":"%s","variant":"%s","clean":true,"built":"%s"}\n' \
+  printf '{"product":"Lt-AI-Books","version":"%s","variant":"%s","clean":true,"built":"%s"}\n' \
     "$VERSION" "$variant" "$DATE" > "$stage/PACKAGE.json"
   (
     cd "$stage"

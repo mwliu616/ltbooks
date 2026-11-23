@@ -82,7 +82,7 @@ $formDescription = (string) ($_POST['description'] ?? ($editing['description'] ?
 $formEntryDate = (string) ($_POST['entryDate'] ?? ($editing['entry_date'] ?? date('Y-m-d')));
 ?>
 <?php ob_start(); ?>
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="journalForm">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="create_journal">
   <?php if ($editing): ?><input type="hidden" name="edit" value="<?= $editId ?>"><?php endif; ?>
@@ -159,6 +159,8 @@ $formEntryDate = (string) ($_POST['entryDate'] ?? ($editing['entry_date'] ?? dat
 
   <?= attach_dropzone('attach', '把支撑材料拖到这里', '计提依据、合同、计算表 · 保存后挂到这张凭证') ?>
 
+  <div class="pc-box" id="aiPrecheck"></div>
+
   <div class="card-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
     <a class="btn" href="?p=journal">取消</a>
     <button class="btn primary" <?= $editing ? 'data-shortcut-save' : 'data-shortcut-post' ?>><?= $editing ? '保存草稿' : '保存并过账' ?></button>
@@ -167,6 +169,32 @@ $formEntryDate = (string) ($_POST['entryDate'] ?? ($editing['entry_date'] ?? dat
     借贷必须相等；同一行不能同时填借方与贷方；<?= $editing ? '保存草稿不会过账' : '期间锁定后会被数据库拒绝' ?>
   </div>
 </form>
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('journalForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function gather() {
+    var lines = [];
+    f.querySelectorAll('#jnBody tr').forEach(function (tr) {
+      var g = function (sel) { var e = tr.querySelector(sel); return e ? e.value : ''; };
+      lines.push({accountCode: g('select[name*="[accountCode]"]'),
+                  description: g('input[name*="[description]"]'),
+                  debit: g('input[name*="[debit]"]'), credit: g('input[name*="[credit]"]')});
+    });
+    return {description: v('description'), entryDate: v('entryDate'), currency: v('currency'), lines: lines};
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f, workflow: 'journal', agentLabel: '会计', auto: true, collect: gather,
+    ready: function (p) {
+      return p.lines.filter(function (l) {
+        return (parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0);
+      }).length >= 2;
+    }
+  });
+})();
+</script>
 <script>
 (function () {
   var body = document.getElementById('jnBody'), add = document.getElementById('jnAdd');

@@ -32,13 +32,13 @@ def main() -> int:
         return 0
 
     password = os.environ.get("LTBOOKS_ADMIN_PASSWORD") or secrets.token_urlsafe(18)
-    authcore.create_user(username, "LtBooks Administrator", password, "admin")
+    authcore.create_user(username, "Lt-AI-Books Administrator", password, "admin")
     target = Path(os.environ.get(
         "LTBOOKS_CREDENTIALS_FILE", str(ROOT / "storage" / "initial-credentials.txt")
     ))
     target.parent.mkdir(parents=True, exist_ok=True)
     content = (
-        "LtBooks Ver 1.0 initial administrator\n"
+        "Lt-AI-Books Ver 1.1 initial administrator\n"
         f"Username: {username}\n"
         f"Password: {password}\n"
         "The password must be changed after the first login.\n"

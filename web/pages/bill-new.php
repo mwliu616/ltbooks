@@ -288,7 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
   <?php endif; ?>
 <?php endif; ?>
 
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="billForm">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="<?= e($formAction) ?>">
 
@@ -326,6 +326,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
       <div class="field"><label class="f">费用 / 成本科目 *</label>
         <select name="expenseAccountCode" required data-allow-create="1" id="expAcc"><?= $opts ?></select>
         <div class="hint">借方科目；进项税额自动记入 1160</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+          <button type="button" class="btn sm" id="accSuggestBtn">根据摘要建议</button>
+          <span class="hint" id="accSuggestMsg"></span>
+        </div>
+        <div id="accSuggestList" style="margin-top:4px"></div>
       </div>
       <div class="field"><label class="f">主题</label>
         <input type="text" name="subject" value="<?= e((string) ($_POST['subject'] ?? '')) ?>" placeholder="例：年度审计费">
@@ -479,6 +484,8 @@ if (!$vLines) { $vLines = [['code'=>'','desc'=>'','unit'=>'','qty'=>'1','price'=
   <div id="dzList" class="dz-list"></div>
   <?php echo card('附件', ob_get_clean(), '', false); ?>
 
+  <div class="pc-box" id="aiPrecheck"></div>
+
   <div class="toolbar" style="justify-content:flex-end">
     <span class="hint" style="margin-right:auto">保存后可在详情页补附件，校验通过再过账</span>
     <a class="btn" href="<?= $isEdit ? '?p=bill-view&id=' . $editId : '?p=bills' ?>">取消</a>
@@ -490,6 +497,46 @@ if (!$vLines) { $vLines = [['code'=>'','desc'=>'','unit'=>'','qty'=>'1','price'=
     <?php endif; ?>
   </div>
 </form>
+
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('billForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function gather() {
+    var vendor = v('vendorName');
+    if (vendor === '__custom__') { vendor = v('vendorNameCustom'); }
+    var body = document.getElementById('billLineBody');
+    var lines = [];
+    if (body) {
+      body.querySelectorAll('tr').forEach(function (tr) {
+        var g = function (sel) { var e = tr.querySelector(sel); return e ? e.value : ''; };
+        var desc = g('input[name="lineDesc[]"]');
+        if (!desc) return;
+        lines.push({description: desc, quantity: g('input[name="lineQty[]"]'),
+                    unitPrice: g('input[name="linePrice[]"]'), discount: g('input[name="lineDisc[]"]'),
+                    taxRate: g('input[name="lineTax[]"]'),
+                    amount: g('input[name="lineAmount[]"]'),
+                    taxAmount: g('input[name="lineTaxAmt[]"]'),
+                    accountCode: v('expenseAccountCode')});
+      });
+    }
+    return {vendorName: vendor, date: v('date'), currency: v('currency'),
+            vendorInvoiceNo: v('vendorInvoiceNo'), subject: v('subject'),
+            expenseAccountCode: v('expenseAccountCode'), vendorNotes: v('vendorNotes'), lines: lines};
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f, workflow: 'bill', agentLabel: '会计', auto: true, collect: gather,
+    ready: function (p) {
+      return p.vendorName && p.lines.some(function (l) {
+        return l.description && (parseFloat(l.amount) > 0 ||
+          (parseFloat(l.quantity) * parseFloat(l.unitPrice)) > 0);
+      });
+    }
+  });
+})();
+</script>
 
 <script>
 /* 付款条件 → 到期日 */
@@ -730,5 +777,81 @@ window._vendors = <?= json_encode(array_map(function ($v) {
   var dr = document.getElementById('discRate');
   if (dr) dr.addEventListener('input', recalcAll);
   renumber(); recalcAll();
+})();
+</script>
+<script>
+/* 摘要 → 科目建议：只给候选，必须人工点击应用 */
+(function () {
+  var btn = document.getElementById('accSuggestBtn');
+  var sel = document.getElementById('expAcc');
+  var list = document.getElementById('accSuggestList');
+  var msg = document.getElementById('accSuggestMsg');
+  if (!btn || !sel || !list || !msg) return;
+  var csrfEl = document.querySelector('input[name="_csrf"]');
+
+  function gather() {
+    var get = function (sel) { var el = document.querySelector(sel); return el ? el.value : ''; };
+    var lines = [];
+    document.querySelectorAll('input[name="lineDesc[]"]').forEach(function (el) {
+      if (el.value.trim()) lines.push({ description: el.value.trim() });
+    });
+    return {
+      subject: get('input[name="subject"]'),
+      vendor: get('#vendName'),
+      notes: get('textarea[name="vendorNotes"]'),
+      lines: lines,
+      csrf: csrfEl ? csrfEl.value : ''
+    };
+  }
+
+  btn.addEventListener('click', function () {
+    var body = gather();
+    if (!body.subject.trim() && !body.lines.length) {
+      msg.textContent = '请先填写主题或明细';
+      return;
+    }
+    btn.disabled = true;
+    msg.textContent = '正在分析…';
+    list.innerHTML = '';
+    fetch('suggest-account.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      btn.disabled = false;
+      if (!res.ok) { msg.textContent = res.error || '建议失败'; return; }
+      var sugs = (res.data && res.data.suggestions) || [];
+      if (!sugs.length) { msg.textContent = '未找到匹配科目，请手选'; return; }
+      msg.textContent = '建议（' + (res.data.source === 'ai' ? 'AI' : '关键词') + '）：请确认后应用';
+      list.innerHTML = '';
+      sugs.forEach(function (s) {
+        var row = document.createElement('div');
+        row.style.marginTop = '4px';
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn sm';
+        b.textContent = s.code + ' ' + s.name;
+        b.addEventListener('click', function () {
+          sel.value = s.code;
+          sel.dispatchEvent(new Event('change'));
+          list.innerHTML = '';
+          var done = document.createElement('span');
+          done.className = 'hint';
+          done.textContent = '已应用 ' + s.code + '，可继续修改';
+          list.appendChild(done);
+        });
+        var why = document.createElement('span');
+        why.className = 'hint';
+        why.style.marginLeft = '6px';
+        why.textContent = s.reason || '';
+        row.appendChild(b);
+        row.appendChild(why);
+        list.appendChild(row);
+      });
+    }).catch(function () {
+      btn.disabled = false;
+      msg.textContent = '网络错误，请重试';
+    });
+  });
 })();
 </script>

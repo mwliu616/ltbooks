@@ -6,6 +6,15 @@
  */
 $custR = api_get('/customers?limit=0');
 $customerList = $custR['ok'] ? ($custR['data']['customers'] ?? []) : [];
+// 逐行收入科目：过账时按行科目分别贷记收入
+$revAccounts = [];
+$revR = api_get('/accounts/tree');
+foreach (($revR['ok'] ? ($revR['data']['accounts'] ?? []) : []) as $a) {
+    if (!empty($a['is_active']) && (string) ($a['category'] ?? '') === 'revenue') {
+        $revAccounts[] = $a;
+    }
+}
+$defaultRev = '4100';
 $partyErr = handle_inline_party_create('customer', 'invoice-new', $user ?? []);
 $newParty = (string) ($_GET['newparty'] ?? '');
 $role = isset($role) ? $role : 'accountant';  // 来自服务端会话
@@ -51,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === $formA
             return [
                 'itemCode'    => trim((string) ($_POST['lineItemCode'][$i] ?? '')),
                 'description' => trim((string) ($_POST['lineDesc'][$i] ?? '')),
+                'accountCode' => trim((string) ($_POST['lineAccountCode'][$i] ?? '')),
                 'unit'        => trim((string) ($_POST['lineUnit'][$i] ?? '')),
                 'quantity'    => trim((string) ($_POST['lineQty'][$i] ?? '')),
                 'unitPrice'   => trim((string) ($_POST['linePrice'][$i] ?? '')),
@@ -129,6 +139,7 @@ if ($isEdit && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $_POST['lineNote'] = array_map(static fn ($l): string => (string) ($l['notes'] ?? ''), $editLines);
     $_POST['lineUnit'] = array_map(static fn ($l): string => (string) ($l['unit'] ?? ''), $editLines);
     $_POST['lineItemCode'] = array_map(static fn ($l): string => (string) ($l['item_code'] ?? ''), $editLines);
+    $_POST['lineAccountCode'] = array_map(static fn ($l): string => (string) ($l['revenue_account_code'] ?? ''), $editLines);
     $_POST['lineDisc'] = array_map(static function ($l): string {
         $base = (float) ($l['quantity'] ?? 0) * (float) ($l['unit_price'] ?? 0);
         return $base > 0 ? (string) round((1 - (float) $l['amount'] / $base) * 100, 4) : '0';
@@ -260,7 +271,7 @@ if ($result !== null && !isset($result['__error'])) {
 </div>
 
 
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="invForm">
   <?= csrf_field() ?>
 <input type="hidden" name="action" value="<?= e($formAction) ?>">
 
@@ -347,17 +358,19 @@ foreach ((array) ($_POST['lineDesc'] ?? []) as $i => $d) {
         'tax'   => (string) ($_POST['lineTax'][$i] ?? ''),
         'unit'  => (string) ($_POST['lineUnit'][$i] ?? ''),
         'code'  => (string) ($_POST['lineItemCode'][$i] ?? ''),
+        'acct'  => (string) ($_POST['lineAccountCode'][$i] ?? ''),
         'note'  => (string) ($_POST['lineNote'][$i] ?? ''),
         'taxAmt'=> (string) ($_POST['lineTaxAmt'][$i] ?? ''),
         'amount'=> (string) ($_POST['lineAmount'][$i] ?? ''),
     ];
 }
-if (!$vLines) { $vLines = [['desc'=>'','qty'=>'1','price'=>'','disc'=>'0','tax'=>'','unit'=>'','code'=>'','note'=>'','taxAmt'=>'','amount'=>'']]; }
+if (!$vLines) { $vLines = [['desc'=>'','qty'=>'1','price'=>'','disc'=>'0','tax'=>'','unit'=>'','code'=>'','acct'=>'','note'=>'','taxAmt'=>'','amount'=>'']]; }
 ?>
 <div class="table-wrap"><table id="lineTable" style="min-width:0">
   <thead><tr>
     <th style="width:38px" class="num">#</th>
     <th>项目 / 描述</th>
+    <th style="width:150px">收入科目</th>
     <th style="width:84px" class="num">数量</th>
     <th style="width:124px" class="num">单价</th>
     <th style="width:84px" class="num">折扣 %</th>
@@ -374,6 +387,12 @@ if (!$vLines) { $vLines = [['desc'=>'','qty'=>'1','price'=>'','disc'=>'0','tax'=
         <input type="hidden" name="lineItemCode[]" value="<?= e($ln['code']) ?>">
         <input type="hidden" name="lineNote[]" value="<?= e($ln['note']) ?>">
       </td>
+      <?php $selRev = (string) ($ln['acct'] ?: $defaultRev); ?>
+      <td><select name="lineAccountCode[]" style="width:100%">
+        <?php foreach ($revAccounts as $a): ?>
+          <option value="<?= e((string) $a['account_code']) ?>"<?= $selRev === (string) $a['account_code'] ? ' selected' : '' ?>><?= e((string) $a['account_code'] . ' ' . ($a['account_name'] ?? '')) ?></option>
+        <?php endforeach; ?>
+      </select></td>
       <td><input type="number" step="0.0001" min="0" name="lineQty[]" value="<?= e($ln['qty']) ?>" class="ln-qty" style="width:100%"></td>
       <td><input type="number" step="0.01" min="0" name="linePrice[]" value="<?= e($ln['price']) ?>" class="ln-price" style="width:100%"></td>
       <td><input type="number" step="0.01" min="0" max="100" name="lineDisc[]" value="<?= e($ln['disc']) ?>" class="ln-disc" style="width:100%"></td>
@@ -393,6 +412,8 @@ if (!$vLines) { $vLines = [['desc'=>'','qty'=>'1','price'=>'','disc'=>'0','tax'=
   <span class="hint">金额 = 数量 × 单价 ×（1 − 折扣%）</span>
 </div>
 <?php echo card('项目明细', ob_get_clean()); ?>
+
+<div class="pc-box" id="aiPrecheck"></div>
 
 <div class="zfoot">
   <div class="zfoot-left">
@@ -515,6 +536,45 @@ if (!$vLines) { $vLines = [['desc'=>'','qty'=>'1','price'=>'','disc'=>'0','tax'=
   <?php endif; ?>
 </div>
 </form>
+
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('invForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function gather() {
+    var cust = v('supplierName');
+    if (cust === '__custom__') { cust = v('supplierNameCustom'); }
+    var body = document.getElementById('lineBody');
+    var lines = [];
+    if (body) {
+      body.querySelectorAll('tr').forEach(function (tr) {
+        var g = function (sel) { var e = tr.querySelector(sel); return e ? e.value : ''; };
+        var desc = g('input[name="lineDesc[]"]');
+        if (!desc) return;
+        lines.push({description: desc, quantity: g('input[name="lineQty[]"]'),
+                    unitPrice: g('input[name="linePrice[]"]'), discount: g('input[name="lineDisc[]"]'),
+                    taxRate: g('input[name="lineTax[]"]'),
+                    amount: g('input[name="lineAmount[]"]'),
+                    taxAmount: g('input[name="lineTaxAmt[]"]'),
+                    accountCode: g('select[name="lineAccountCode[]"]')});
+      });
+    }
+    return {customerName: cust, invoiceDate: v('invoiceDate'), currency: v('currency'),
+            recognitionPattern: v('recognitionPattern'), subject: v('subject'), lines: lines};
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f, workflow: 'invoice', agentLabel: '会计', auto: true, collect: gather,
+    ready: function (p) {
+      return p.customerName && p.lines.some(function (l) {
+        return l.description && (parseFloat(l.amount) > 0 ||
+          (parseFloat(l.quantity) * parseFloat(l.unitPrice)) > 0);
+      });
+    }
+  });
+})();
+</script>
 
 <script>
 /* 客户档案映射：选完客户自动填地址、币种、付款条件 */
@@ -667,9 +727,10 @@ window._customers = <?= json_encode(array_map(function ($c) {
   body.querySelectorAll('tr').forEach(bind);
   addBtn.addEventListener('click', function () {
     var tr = body.querySelector('tr').cloneNode(true);
-    tr.querySelectorAll('input').forEach(function (i) {
+    Array.prototype.forEach.call(tr.querySelectorAll('input'), function (i) {
       i.value = (i.name === 'lineQty[]') ? '1' : ((i.name === 'lineDisc[]') ? '0' : '');
     });
+    Array.prototype.forEach.call(tr.querySelectorAll('select'), function (s) { s.value = <?= json_encode($defaultRev) ?>; });
     body.appendChild(tr); bind(tr); renumber();
     tr.querySelector('input[name="lineDesc[]"]').focus();
     recalcAll();

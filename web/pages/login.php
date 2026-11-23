@@ -16,7 +16,7 @@ if ($nvR['ok'] && !empty($nvR['data']['zhHk'])) { $zhName = (string) $nvR['data'
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e(t('登录')) ?> — LtBooks</title>
+<title><?= e(t('登录')) ?> — Lt-AI-Books</title>
 <link rel="icon" type="image/png" href="assets/favicon.png?v=<?= @filemtime(__DIR__ . '/../assets/favicon.png') ?>">
 <link rel="stylesheet" href="assets/app.css?v=<?= @filemtime(__DIR__ . '/../assets/app.css') ?>">
 <style>
@@ -110,8 +110,8 @@ body.auth-page::after {            /* 极淡同心圆，唯一装饰 */
   <div class="auth-mark">
     <img src="<?= e(company_logo(192)) ?>?v=<?= (int) @filemtime(__DIR__ . '/../' . company_logo(192)) ?>" alt="LEDU" width="38" height="38">
     <div>
-      <div class="pn">LtBooks</div>
-      <div class="pv">Ver 1.0</div>
+      <div class="pn">Lt-AI-Books</div>
+      <div class="pv">Ver 1.1</div>
     </div>
   </div>
 

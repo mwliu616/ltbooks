@@ -304,6 +304,25 @@ def create_invoice(payload, actor="system", invoice_id=None):
         if not (rev.get("credit") or {}).get("code"):
             rev = dict(rev)
             rev["credit"] = {**(rev.get("credit") or {}), "code": credit_code}
+        # 逐行收入科目优先；没有行科目才回退到规则/表头科目。
+        header_rev = (str(payload.get("revenueAccountCode") or "").strip()
+                      or next((l["accountCode"] for l in norm_lines if l.get("accountCode")), None)
+                      or credit_code or "4100")
+        credit_code = header_rev
+        line_codes = sorted({l["accountCode"] for l in norm_lines if l.get("accountCode")})
+        if line_codes:
+            with conn.cursor() as _c:
+                _ph = ",".join(["%s"] * len(line_codes))
+                _c.execute(f"""SELECT account_code, category FROM accounts
+                                WHERE entity_id=%s AND account_code IN ({_ph})""",
+                           (entity["entity_id"], *line_codes))
+                _meta = {r["account_code"]: r["category"] for r in _c.fetchall()}
+            missing = [c for c in line_codes if c not in _meta]
+            if missing:
+                raise ValueError("收入科目不存在：" + "、".join(missing))
+            not_rev = [c for c in line_codes if _meta[c] != "revenue"]
+            if not_rev:
+                raise ValueError("以下科目不是收入类科目：" + "、".join(not_rev))
         lines = []
         if basis_amount is not None:
             lines.append({"accountCode": debit_code, "debit": float(basis_amount)})
@@ -381,7 +400,7 @@ def create_invoice(payload, actor="system", invoice_id=None):
                      inv_date, payload.get("dueDate"), recog, ccy, amount, tax, gross, discount,
                      discount_rate, implied, functional or 0, tax_fn or 0, fx_rate or 1,
                      fx_date, fx_tag, po, payload.get("recognitionPattern"),
-                     (rev.get("credit") or {}).get("code"),
+                     header_rev,
                      float(basis_amount) if rev["contractAssetApplied"] and basis_amount is not None else 0,
                      float(basis_amount) if rev["contractLiabilityApplied"] and basis_amount is not None else 0,
                      payload.get("confidence"), payload.get("sourceFilePath"),
@@ -415,7 +434,7 @@ def create_invoice(payload, actor="system", invoice_id=None):
                      inv_date, payload.get("dueDate"), recog, ccy, amount, tax, gross, discount, discount_rate, implied,
                      functional or 0, tax_fn or 0, fx_rate or 1, fx_date, fx_tag,
                      po, payload.get("recognitionPattern"),
-                     (rev.get("credit") or {}).get("code"),
+                     header_rev,
                      float(basis_amount) if rev["contractAssetApplied"] and basis_amount is not None else 0,
                      float(basis_amount) if rev["contractLiabilityApplied"] and basis_amount is not None else 0,
                      payload.get("confidence"), payload.get("sourceFilePath"),
@@ -424,12 +443,14 @@ def create_invoice(payload, actor="system", invoice_id=None):
 
             for ln in norm_lines:
                 cur.execute("""INSERT INTO invoice_lines
-                    (entity_id, invoice_id, line_no, item_code, description, unit,
-                     quantity, unit_price, amount, tax_rate, tax_amount, notes)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (entity_id, invoice_id, line_no, item_code, description,
+                     revenue_account_code, unit, quantity, unit_price, amount,
+                     tax_rate, tax_amount, notes)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                     (entity["entity_id"], invoice_id, ln["lineNo"], ln["itemCode"],
-                     ln["description"], ln["unit"], ln["quantity"], ln["unitPrice"],
-                     ln["amount"], ln["taxRate"], ln["taxAmount"], ln["notes"]))
+                     ln["description"], ln["accountCode"], ln["unit"], ln["quantity"],
+                     ln["unitPrice"], ln["amount"], ln["taxRate"], ln["taxAmount"],
+                     ln["notes"]))
 
             # 可选的合同关联：发票建立时即归入合同，也可之后在合同页补关联
             contract_id = payload.get("contractId")
@@ -474,7 +495,7 @@ def create_invoice(payload, actor="system", invoice_id=None):
             "fxRateDate": fx_date, "fxRatePolicy": fx_tag,
             "amountFunctional": float(functional) if functional is not None else None,
             "performanceObligationStatus": po,
-            "revenueAccountCode": (rev.get("credit") or {}).get("code"),
+            "revenueAccountCode": header_rev,
             "checks": checks, "agentCheck": chk, "pendingReviewIds": pending_ids,
             "roundingNotes": rounding_notes,
             "canPost": chk["verdict"] == "PASS" and severity is None,
@@ -576,7 +597,30 @@ def post_invoice(invoice_id, actor="system"):
             pattern = str(inv.get("recognition_pattern") or "").lower()
             progress_contract = pattern == "over_time"
             if progress_contract:
-                credit_acct = "2120"   # 合同负债：已开票但尚未按进度确认收入
+                credit_lines = [("2120", net)]   # 合同负债：已开票但尚未按进度确认收入
+            else:
+                # 逐行收入科目：一张发票可含多个收入科目，按行金额比例分摊净额。
+                per_acct = query("""SELECT revenue_account_code AS account_code, SUM(amount) AS amt
+                                      FROM invoice_lines
+                                     WHERE invoice_id=%s
+                                       AND revenue_account_code IS NOT NULL
+                                       AND revenue_account_code<>''
+                                     GROUP BY revenue_account_code ORDER BY revenue_account_code""",
+                                 (invoice_id,))
+                line_total = sum((dec(r["amt"]) for r in per_acct), dec(0))
+                if per_acct and line_total > 0 and net:
+                    credit_lines = [(str(r["account_code"]),
+                                     quantize_money(net * dec(r["amt"]) / line_total)[0])
+                                    for r in per_acct]
+                    tail = net - sum((a for _, a in credit_lines), dec(0))
+                    if tail:
+                        c0, a0 = credit_lines[0]
+                        credit_lines[0] = (c0, a0 + tail)
+                    credit_lines = [(c, a) for c, a in credit_lines if a]
+                else:
+                    credit_lines = [(credit_acct, net)]
+                if not credit_lines:
+                    credit_lines = [(credit_acct, net)]
 
             cur.execute("""INSERT INTO journal_entries
                 (entity_id,entry_no,entry_date,source_type,source_id,description,status,
@@ -586,21 +630,30 @@ def post_invoice(invoice_id, actor="system"):
                  f"发票 {inv['invoice_no']} 确认", debit, debit, actor, inv["retention_until"]))
             entry_id = cur.lastrowid
 
+            line_no = 1
             cur.execute("""INSERT INTO journal_lines
                 (entry_id,line_no,account_code,description,debit,credit,ccy,amount_original,rate,rate_date)
-                VALUES (%s,1,%s,%s,%s,0,%s,%s,%s,%s)""",
-                (entry_id, debit_acct, f"发票 {inv['invoice_no']}", debit,
+                VALUES (%s,%s,%s,%s,%s,0,%s,%s,%s,%s)""",
+                (entry_id, line_no, debit_acct, f"发票 {inv['invoice_no']}", debit,
                  inv["currency"], inv["gross_original"], inv["fx_rate"], inv["fx_rate_date"]))
-            cur.execute("""INSERT INTO journal_lines
-                (entry_id,line_no,account_code,description,debit,credit,ccy,amount_original,rate,rate_date)
-                VALUES (%s,2,%s,%s,0,%s,%s,%s,%s,%s)""",
-                (entry_id, credit_acct, f"发票 {inv['invoice_no']}", net,
-                 inv["currency"], inv["amount_original"], inv["fx_rate"], inv["fx_rate_date"]))
+            line_no += 1
+            for code, amt in credit_lines:
+                if len(credit_lines) == 1:
+                    orig = inv["amount_original"]
+                else:
+                    orig = (quantize_money(dec(inv["amount_original"]) * amt / net)[0]
+                            if net else dec(0))
+                cur.execute("""INSERT INTO journal_lines
+                    (entry_id,line_no,account_code,description,debit,credit,ccy,amount_original,rate,rate_date)
+                    VALUES (%s,%s,%s,%s,0,%s,%s,%s,%s,%s)""",
+                    (entry_id, line_no, code, f"发票 {inv['invoice_no']}", amt,
+                     inv["currency"], orig, inv["fx_rate"], inv["fx_rate_date"]))
+                line_no += 1
             if tax_fn > 0:
                 cur.execute("""INSERT INTO journal_lines
                     (entry_id,line_no,account_code,description,debit,credit,ccy,amount_original,rate,rate_date)
-                    VALUES (%s,3,'2140',%s,0,%s,%s,%s,%s,%s)""",
-                    (entry_id, f"销项税额 {inv['invoice_no']}", tax_fn,
+                    VALUES (%s,%s,'2140',%s,0,%s,%s,%s,%s,%s)""",
+                    (entry_id, line_no, f"销项税额 {inv['invoice_no']}", tax_fn,
                      inv["currency"], inv["tax_original"], inv["fx_rate"], inv["fx_rate_date"]))
 
             # 把发票附件复制到凭证：日记账/凭证页也要看得到原件

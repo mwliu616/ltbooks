@@ -1,4 +1,4 @@
-# LtBooks Ver 1.0 部署指南
+# Lt-AI-Books Ver 1.1 部署指南
 
 适用于两种发布包：自动化部署包、人工部署包。所有包共用同一份源码与
 安装脚本，差异只在系统层动作和是否接入模型辅助排错。
@@ -29,7 +29,7 @@ WeasyPrint 依赖的磁盘空间。
 两种包结构相同，只有安装入口不同：
 
 ```
-LtBooks-Ver1.0-<variant>-<date>/
+Lt-AI-Books-Ver1.1-<variant>-<date>/
 ├── install.sh                 自动化安装入口（auto 包）
 ├── install-manual.sh          人工安装入口（manual 包）
 ├── backend/                   Python 后端与随包智能体
@@ -141,8 +141,8 @@ php-fpm8.3 -t
 ### 4.2 部署应用
 
 ```bash
-unzip LtBooks-Ver1.0-manual-clean-<date>.zip
-cd LtBooks-Ver1.0-manual-clean-<date>
+unzip Lt-AI-Books-Ver1.1-manual-clean-<date>.zip
+cd Lt-AI-Books-Ver1.1-manual-clean-<date>
 ./install-manual.sh
 ```
 

@@ -87,7 +87,7 @@ header('Content-Type: ' . ($format === 'pdf'
     ? 'application/pdf'
     : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
 header('Content-Disposition: ' . ($disposition !== '' ? $disposition
-    : ($format === 'pdf' ? 'inline' : 'attachment') . '; filename="LtBooks-Financial-Analysis.' . $format . '"'));
+    : ($format === 'pdf' ? 'inline' : 'attachment') . '; filename="Lt-AI-Books-Financial-Analysis.' . $format . '"'));
 header('Content-Length: ' . strlen($body));
 header('Cache-Control: private, no-store');
 header('X-Content-Type-Options: nosniff');

@@ -589,10 +589,10 @@ function localize_compound(string $txt, array $dict, array $accountNames = []): 
     if (preg_match('/^(.{2,12}?)（([^）]*)）$/u', $txt, $m) && !preg_match('/\p{Han}/u', $m[2]) && isset($dict[$m[1]])) {
         return $dict[$m[1]] . ' (' . $m[2] . ')';
     }
-    // 「X — LtBooks」：只翻译页面名，产品名保持统一。
-    if (preg_match('/^(.+?)\s+—\s+LtBooks$/u', $txt, $m)) {
+    // 「X — Lt-AI-Books」：只翻译页面名，产品名保持统一。
+    if (preg_match('/^(.+?)\s+—\s+Lt-AI-Books$/u', $txt, $m)) {
         $head = $dict[trim($m[1])] ?? null;
-        if ($head !== null) return $head . ' — LtBooks';
+        if ($head !== null) return $head . ' — Lt-AI-Books';
     }
     // 「会计 · accountant」面包屑：首段翻译，用户名保留
     if (preg_match('/^(.+?)\s+·\s+(?!LEDU)(.+)$/u', $txt, $m) && isset($dict[trim($m[1])])) {

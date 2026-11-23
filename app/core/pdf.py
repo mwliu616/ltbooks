@@ -1203,3 +1203,190 @@ def voucher_html(entry, lines, entity, attachments=None, lang="zh_cn"):
         html.append("</div>")
     html.append("</body></html>")
     return "".join(html)
+
+
+# ---------------------------------------------------------------- 付款单 / 收款单
+
+_PAY_I18N = {
+    "en": {
+        "made": "PAYMENT VOUCHER", "received": "RECEIPT VOUCHER",
+        "no": "No.", "date": "Date", "vendor": "Vendor", "customer": "Customer",
+        "currency": "Currency", "amount": "Amount", "functional": "In functional currency",
+        "rate": "FX rate", "bank": "Bank account", "entry": "Journal entry",
+        "status": "Status", "docs": "Settled documents", "doc_no": "Document",
+        "doc_date": "Document date", "doc_total": "Document total",
+        "settled": "Settled now", "settled_total": "Settled to date",
+        "fx_diff": "FX difference", "total": "Total",
+        "payee_bank": "Payee bank details", "bank_name": "Bank",
+        "account_name": "Account name", "account_no": "Account number",
+        "swift": "SWIFT / BIC", "bank_address": "Bank address",
+        "none": "No documents settled",
+        "draft": "Draft", "posted": "Posted", "void": "Void", "reversed": "Reversed",
+    },
+    "zh_hk": {
+        "made": "付 款 單", "received": "收 款 單",
+        "no": "編號", "date": "日期", "vendor": "供應商", "customer": "客戶",
+        "currency": "幣種", "amount": "金額", "functional": "折合功能貨幣",
+        "rate": "匯率", "bank": "銀行賬戶", "entry": "記賬憑證",
+        "status": "狀態", "docs": "核銷明細", "doc_no": "單據號",
+        "doc_date": "單據日期", "doc_total": "單據金額",
+        "settled": "本次核銷", "settled_total": "累計已核銷",
+        "fx_diff": "匯兌差額", "total": "合計",
+        "payee_bank": "收款銀行資料", "bank_name": "開戶銀行",
+        "account_name": "賬戶名稱", "account_no": "銀行賬號",
+        "swift": "SWIFT / BIC", "bank_address": "銀行地址",
+        "none": "這張付款單沒有核銷任何單據",
+        "draft": "草稿", "posted": "已記賬", "void": "已作廢", "reversed": "已沖銷",
+    },
+    "zh_cn": {
+        "made": "付 款 单", "received": "收 款 单",
+        "no": "编号", "date": "日期", "vendor": "供应商", "customer": "客户",
+        "currency": "币种", "amount": "金额", "functional": "折合功能货币",
+        "rate": "汇率", "bank": "银行账户", "entry": "记账凭证",
+        "status": "状态", "docs": "核销明细", "doc_no": "单据号",
+        "doc_date": "单据日期", "doc_total": "单据金额",
+        "settled": "本次核销", "settled_total": "累计已核销",
+        "fx_diff": "汇兑差额", "total": "合计",
+        "payee_bank": "收款银行信息", "bank_name": "开户银行",
+        "account_name": "账户名称", "account_no": "银行账号",
+        "swift": "SWIFT / BIC", "bank_address": "银行地址",
+        "none": "这张付款单没有核销任何单据",
+        "draft": "草稿", "posted": "已记账", "void": "已作废", "reversed": "已冲销",
+    },
+}
+
+_PAY_CSS = """
+@page { size: A4; margin: 16mm 14mm 38mm 14mm;
+  @bottom-right { content: counter(page) " / " counter(pages);
+    font-family: "Liberation Serif", "WenQuanYi Zen Hei", sans-serif;
+    font-size: 7pt; color: #888; padding-bottom: 10mm;
+    vertical-align: bottom; } }
+.doc-foot { position: fixed; left: 0; right: 0; bottom: -28mm; margin-top: 0; }
+.kvt { margin: 0 0 4px; }
+.kvt td { border: none; padding: 3px 8px 3px 0; font-size: 9.5pt; vertical-align: top; }
+.kvt td.k { color: #888; width: 24mm; white-space: nowrap; font-size: 8.5pt; }
+.kvt td.v { font-weight: 600; padding-right: 18px; }
+.bankbox { border: 1px solid #DDE3EA; background: #FAFBFC; padding: 8px 10px; margin-top: 14px; }
+.bankbox .bt { font-size: 8pt; font-weight: 700; color: #555; letter-spacing: .06em;
+               text-transform: uppercase; margin-bottom: 5px; }
+.bankbox table { margin-top: 0; }
+.bankbox td { border: none; padding: 2px 6px 2px 0; font-size: 9.5pt; vertical-align: top; }
+.bankbox td.k { color: #888; width: 26mm; white-space: nowrap; font-size: 8.5pt; }
+.bankbox td.v { font-weight: 600; padding-right: 18px; }
+.muted { color: #888; }
+"""
+
+
+def payment_voucher_html(payment, docs, entity, party_bank=None, lang="zh_cn"):
+    """付款单 / 收款单 PDF：单据信息 + 金额 + 核销明细。
+
+    付款单在核销明细下方打印供应商的收款银行信息，供汇款或复核使用；
+    收款单没有收款方银行资料，区块省略。
+    """
+    _lang = (lang or "zh_cn").lower()
+    if _lang not in _PAY_I18N:
+        _lang = "zh_cn"
+    T = _PAY_I18N[_lang]
+    is_made = str(payment.get("direction") or "received") == "made"
+    ccy = str(payment.get("currency") or "")
+    func = str(entity.get("functional_currency") or "")
+    status = str(payment.get("status") or "")
+    no = str(payment.get("paymentNo") or "")
+    date_s = str(payment.get("date") or "")[:10]
+
+    def kv(k, v_html, colspan=""):
+        span = f" colspan='{colspan}'" if colspan else ""
+        return (f"<td class='k'>{_e(k)}</td>"
+                f"<td class='v'{span}>{v_html}</td>")
+
+    rate_txt = _rate(payment.get("fxRate"))
+    if payment.get("fxRateDate"):
+        rate_txt += (f" ({_e(payment.get('fxRateDate'))})" if _lang == "en"
+                     else f"（{_e(payment.get('fxRateDate'))}）")
+
+    bank = payment.get("bank") or {}
+    bank_txt = ""
+    if bank:
+        bits = [str(x) for x in (bank.get("name"), bank.get("account")) if x]
+        bank_txt = _e(" · ".join(bits))
+
+    rows = [
+        "<tr>" + kv(T["vendor"] if is_made else T["customer"], _e(payment.get("party") or "—"))
+        + kv(T["date"], _e(date_s)) + "</tr>",
+        "<tr>" + kv(T["currency"], _e(ccy))
+        + kv(T["rate"], _e(rate_txt)) + "</tr>",
+        "<tr>" + kv(T["bank"], bank_txt or "<span class='muted'>—</span>")
+        + kv(T["status"], _e(T.get(status, status))) + "</tr>",
+        "<tr>" + kv(T["entry"], _e((payment.get("entry") or {}).get("entryNo") or "—"),
+                    colspan="3") + "</tr>",
+    ]
+
+    fx_rows = ""
+    if payment.get("settlementFxDiff"):
+        fx_rows = (f"<tr><td>{_e(T['fx_diff'])}</td>"
+                   f"<td class='num'>{_money(payment.get('settlementFxDiff'), func)}</td></tr>")
+
+    doc_rows = ""
+    for x in (docs or []):
+        doc_rows += (
+            "<tr>"
+            f"<td>{_e(x.get('docNo') or '')}</td>"
+            f"<td>{_e(x.get('docDate') or '')}</td>"
+            f"<td class='num'>{_money(x.get('documentTotal'), x.get('currency') or ccy)}</td>"
+            f"<td class='num'><b>{_money(x.get('settledOriginal'), x.get('currency') or ccy)}</b></td>"
+            f"<td class='num'>{_money(x.get('documentSettled'), x.get('currency') or ccy)}</td>"
+            f"<td class='num'>{_money(x.get('fxDiff'), func)}</td>"
+            "</tr>")
+    if not doc_rows:
+        doc_rows = f"<tr><td colspan='6' class='muted'>{_e(T['none'])}</td></tr>"
+
+    bank_html = ""
+    if is_made and party_bank:
+        pairs = [
+            (T["bank_name"], party_bank.get("bank_name")),
+            (T["account_name"], party_bank.get("bank_account_name")),
+            (T["account_no"], party_bank.get("bank_account_no")),
+            (T["swift"], party_bank.get("bank_swift")),
+        ]
+        bank_rows = ""
+        for i in range(0, len(pairs), 2):
+            left = pairs[i]
+            right = pairs[i + 1] if i + 1 < len(pairs) else ("", "")
+            bank_rows += "<tr>" + kv(left[0], _e(left[1] or "—")) + kv(right[0], _e(right[1] or "—")) + "</tr>"
+        addr = party_bank.get("bank_address")
+        if addr:
+            bank_rows += "<tr>" + kv(T["bank_address"], _e(addr), colspan="3") + "</tr>"
+        if any(v for _, v in pairs) or addr:
+            bank_html = (f"<div class='bankbox'><div class='bt'>{_e(T['payee_bank'])}</div>"
+                         f"<table>{bank_rows}</table></div>")
+
+    foot = (
+        f"<div class='doc-foot'>"
+        f"<div class='df-name'>{_e(_legal_name(entity, _lang))}</div>"
+        f"<div class='df-line'>{_e(_br_line(entity))}</div>"
+        f"<div class='df-line'>{_contact_line(entity, _lang)}</div>"
+        f"<div class='df-line'>{_e(_address(entity))}</div>"
+        f"<div class='df-note'>{_e(_gen_note(_lang))} {datetime.now().strftime('%Y-%m-%d %H:%M')}</div>"
+        f"</div>")
+
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<style>{BASE_CSS}{_PAY_CSS}</style></head><body>
+{_watermark(status, _lang)}
+<div class="head">
+  <div class="doc-title"><h1>{_e(T['made' if is_made else 'received'])}</h1></div>
+  <div class="doc-meta-right"><span class="dno">{_e(no)} · {_e(date_s)}</span></div>
+</div>
+<table class="kvt"><tbody>{''.join(rows)}</tbody></table>
+<table class="totals">
+  <tr><td>{_e(T['amount'])}</td><td class="num">{_money(payment.get('amount'), ccy)}</td></tr>
+  {fx_rows}
+  <tr class="grand"><td>{_e(T['functional'])}</td>
+      <td class="num">{_money(payment.get('amountFunctional'), func)}</td></tr>
+</table>
+<table><thead><tr><th>{_e(T['doc_no'])}</th><th>{_e(T['doc_date'])}</th>
+<th class="num">{_e(T['doc_total'])}</th><th class="num">{_e(T['settled'])}</th>
+<th class="num">{_e(T['settled_total'])}</th><th class="num">{_e(T['fx_diff'])}</th></tr></thead>
+<tbody>{doc_rows}</tbody></table>
+{bank_html}
+{foot}
+</body></html>"""

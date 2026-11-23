@@ -1,6 +1,6 @@
-# LtBooks 1.0
+# Lt-AI-Books 1.1
 
-LtBooks is an accounting and financial reporting system for small and medium businesses
+Lt-AI-Books is an accounting and financial reporting system for small and medium businesses
 in Hong Kong. The browser interface is server-rendered PHP 8.3, the ledger and API run
 on Python 3.12, and data is stored in MariaDB 10.11.
 
@@ -10,7 +10,7 @@ commentary. They do not produce numbers on their own.
 
 - Copyright (c) 2026 LEDU TECH CO., LIMITED
 - License: MIT (see `LICENSE`)
-- Version: 1.0.0 (maintenance update, 2026-11-21)
+- Version: 1.1 (maintenance update, 2026-11-21)
 
 ## What it covers
 
@@ -33,7 +33,7 @@ the current interface language.
 ## Deployment packages
 
 Packages are published in `files/releases/` and attached to the GitHub release at
-https://github.com/mwliu616/ltbooks/releases/tag/v1.0.0. Both are clean installers with
+https://github.com/mwliu616/ltbooks/releases/tag/v1.1. Both are clean installers with
 no business data. They contain:
 
 - an empty schema for 50 tables, including triggers and routines;
@@ -46,8 +46,8 @@ accounts, exchange rate caches, user passwords, receipt files, backups or API ke
 
 | Package | File | When to use it |
 | --- | --- | --- |
-| Automatic | `LtBooks-Ver1.0-auto-clean-20261123.tar.gz` | New Debian or Ubuntu server. Run `./install.sh` as root. It asks for a domain name or server IP, then for an optional certificate email when a domain is used. It installs Nginx, MariaDB, PHP, Python, Node and the OCR/PDF dependencies, then configures HTTPS. |
-| Manual | `LtBooks-Ver1.0-manual-clean-20261123.zip` | Existing hosting panel, internal network, or a server where you manage system packages yourself. Prepare the environment first, then run `./install-manual.sh`, which only creates directories, the database and the configuration. |
+| Automatic | `Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz` | New Debian or Ubuntu server. Run `./install.sh` as root. It asks for a domain name or server IP, then for an optional certificate email when a domain is used. It installs Nginx, MariaDB, PHP, Python, Node and the OCR/PDF dependencies, then configures HTTPS. |
+| Manual | `Lt-AI-Books-Ver1.1-manual-clean-20261123.zip` | Existing hosting panel, internal network, or a server where you manage system packages yourself. Prepare the environment first, then run `./install-manual.sh`, which only creates directories, the database and the configuration. |
 
 Use one package per server, not both. The old AI deployment package has been removed.
 
@@ -59,7 +59,7 @@ Each package has a matching `.sha256` file. Inside the package, `MANIFEST.txt` l
 hash for every file and `PACKAGE.json` records the variant, build date and file count.
 
 ```bash
-sha256sum -c LtBooks-Ver1.0-auto-clean-20261123.tar.gz.sha256
+sha256sum -c Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz.sha256
 ```
 
 Installation steps are in [HOWTO.md](HOWTO.md). Deployment parameters, directories and
@@ -118,7 +118,7 @@ the installer again is safe.
 
 ## License
 
-LtBooks is released under the MIT license. The full text is in `LICENSE` (in the
+Lt-AI-Books is released under the MIT license. The full text is in `LICENSE` (in the
 deployment package) and in the repository root. Runtime dependencies (Flask, PyMySQL,
 WeasyPrint, python-docx, openpyxl and others) keep their own licenses; the list is in
 `backend/requirements.txt`. The documentation and code do not depend on a particular

@@ -120,7 +120,7 @@ $revAccounts = array_values(array_filter($accounts, fn($a) => $a['category'] ===
     <h2><?= e(t($editing ? '编辑贷记单草稿' : '开贷记单')) ?></h2>
     <a class="btn sm" href="?p=credit-notes">返回列表</a>
   </div>
-  <form method="post" class="card-body" enctype="multipart/form-data">
+  <form method="post" class="card-body" enctype="multipart/form-data" id="creditForm">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="<?= $editing ? 'credit_update' : 'credit_create' ?>">
     <?php if ($editing): ?><input type="hidden" name="id" value="<?= (int) $editing['credit_id'] ?>"><?php endif; ?>
@@ -236,6 +236,8 @@ $revAccounts = array_values(array_filter($accounts, fn($a) => $a['category'] ===
 
     <?= attach_dropzone('attach', '把退货单、折让协议拖到这里', '或点击选择文件 · 保存后自动挂到这张贷记单') ?>
 
+    <div class="pc-box" id="aiPrecheck"></div>
+
     <div class="card-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
       <a class="btn" href="?p=credit-notes">取消</a>
       <?php if ($editing): ?>
@@ -246,6 +248,25 @@ $revAccounts = array_values(array_filter($accounts, fn($a) => $a['category'] ===
       <?php endif; ?>
     </div>
   </form>
+
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('creditForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function gather() {
+    return {creditType: v('creditType'), partyName: v('partyName'), creditDate: v('creditDate'),
+            currency: v('currency'), revenueAccountCode: v('revenueAccountCode'),
+            amountOriginal: v('amountOriginal'), taxOriginal: v('taxOriginal'),
+            reason: v('reason'), sourceInvoiceId: v('sourceInvoiceId'), sourceBillId: v('sourceBillId')};
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f, workflow: 'credit_note', agentLabel: '会计', auto: true, collect: gather,
+    ready: function (p) { return p.partyName && parseFloat(p.amountOriginal) > 0; }
+  });
+})();
+</script>
 
 <script>
 window._creditCustomers = <?= json_encode(array_map(function ($c) {

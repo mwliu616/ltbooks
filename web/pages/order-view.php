@@ -169,6 +169,7 @@ if ($errMsg) { echo errbox($errMsg); }
   <div class="table-wrap"><table>
     <thead><tr>
       <th style="width:40px">#</th><th><?= e(t('摘要')) ?></th>
+      <th><?= e($isSales ? t('收入科目') : t('费用科目')) ?></th>
       <th class="num"><?= e(t('数量')) ?></th>
       <th class="num"><?= e($isSales ? t('已交付') : t('已收')) ?></th>
       <th class="num"><?= e($isSales ? t('未交付') : t('未收')) ?></th>
@@ -180,6 +181,7 @@ if ($errMsg) { echo errbox($errMsg); }
         <td class="hint"><?= (int) $ln['line_no'] ?></td>
         <td><?= e((string) $ln['description']) ?>
           <?php if (!empty($ln['unit'])): ?><span class="hint"> · <?= e((string) $ln['unit']) ?></span><?php endif; ?></td>
+        <td class="mono hint"><?= e((string) ($ln['account_code'] ?? '')) ?></td>
         <td class="num"><?= rtrim(rtrim(number_format((float) $ln['quantity'], 4, '.', ''), '0'), '.') ?></td>
         <td class="num"><?= rtrim(rtrim(number_format((float) $ln['done_qty'], 4, '.', ''), '0'), '.') ?></td>
         <td class="num"><?= rtrim(rtrim(number_format((float) $ln['remaining_qty'], 4, '.', ''), '0'), '.') ?></td>

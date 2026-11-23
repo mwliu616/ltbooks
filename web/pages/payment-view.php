@@ -19,12 +19,17 @@ $docs = $d['documents'] ?? [];
 $title = $isIn ? '收款单详情' : '付款单详情';
 
 $listPage = $isIn ? 'receipts' : 'payments';
-$backBtn = '<a class="btn sm" href="?p=' . $listPage . '">← 返回</a>';
+$actions = export_menu(
+    export_lang_items('/payments/' . $kind . '/' . $id . '/pdf'),
+    '打印 / PDF',
+    'btn sm'
+);
+$actions .= '<a class="btn sm" href="?p=' . $listPage . '">← 返回</a>';
 if ($role !== 'auditor' && (string) $d['status'] === 'draft') {
-    $backBtn .= '<a class="btn sm primary" href="?p=' . $listPage . '&amp;edit=' . $id . '">编辑草稿</a>'
+    $actions .= '<a class="btn sm primary" href="?p=' . $listPage . '&amp;edit=' . $id . '">编辑草稿</a>'
               . draft_delete_form($isIn ? 'payment_received' : 'payment_made', $id, $listPage);
 }
-echo card($title . ' ' . $d['paymentNo'], '', $backBtn, false); ?>
+echo card($title . ' ' . $d['paymentNo'], '', $actions, false); ?>
 
 <?php ob_start(); ?>
 <?= kv_grid([

@@ -425,7 +425,7 @@ def build_report(entity, *, period="this_month", month="", year="", start="", en
                             "Open documents are dated on or before period end; outstanding amounts use current settlement records, not a reconstruction of historical settlement status.")}
 
     report = {
-        "report": "LtBooks Financial Analysis Ver1.0", "version": "1.0", "lang": lang,
+        "report": "Lt-AI-Books Financial Analysis Ver1.1", "version": "1.1", "lang": lang,
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
         "entity": {"id": entity_id, "name": entity.get("entity_name") or entity.get("name") or "",
                    "legalName": entity.get("legal_name") or entity.get("legalName"),
@@ -670,7 +670,7 @@ def _report_html(report, charts):
     """
     parts = [f"<!doctype html><html lang='{e(lang)}'><head><meta charset='utf-8'><style>{css}</style></head><body>",
              f"<h1>{e(title)}</h1><div><b>{e(report['entity']['name'])}</b></div>",
-             f"<div class='meta'>LtBooks Ver1.0 · {e(p['start'])} – {e(p['end'])} · {e(report['entity']['currency'])}</div>",
+             f"<div class='meta'>Lt-AI-Books Ver1.1 · {e(p['start'])} – {e(p['end'])} · {e(report['entity']['currency'])}</div>",
              f"<div class='meta'>{e(report['generatedAt'])} · {e(report['currencyNote'])}</div>",
              f"<h2>{e(L('管理摘要', '管理摘要', 'Executive summary'))}</h2><p><b>{e(report['analysis']['summary'])}</b></p>"]
     for text in report["analysis"]["paragraphs"]:
@@ -768,7 +768,7 @@ def _docx(report, charts, path):
 
     document.add_heading(L("财务分析报告", "財務分析報告", "Financial Analysis Report"), 0)
     document.add_paragraph(report["entity"]["name"])
-    document.add_paragraph(f"LtBooks Ver1.0 · {p['start']} – {p['end']} · {report['entity']['currency']}")
+    document.add_paragraph(f"Lt-AI-Books Ver1.1 · {p['start']} – {p['end']} · {report['entity']['currency']}")
     document.add_paragraph(report["currencyNote"])
     document.add_heading(L("管理摘要", "管理摘要", "Executive summary"), 1)
     document.add_paragraph(report["analysis"]["summary"])
@@ -832,7 +832,7 @@ def export_report(report, fmt, directory):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     # audit_log.object_id 最长 64 字符；完整文件名必须连 DOCX 后缀也留有余量。
-    name = (f"LtBooks-FA-{report['period']['start']}_"
+    name = (f"Lt-AI-Books-FA-{report['period']['start']}_"
             f"{report['period']['end']}-{report['lang']}-{uuid.uuid4().hex[:10]}.{fmt}")
     path = directory / name
     with tempfile.TemporaryDirectory(prefix="ledu-analysis-") as tmp:

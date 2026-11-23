@@ -1,6 +1,6 @@
-# LtBooks Backend (Python API)
+# Lt-AI-Books Backend (Python API)
 
-The ledger core and HTTP API for LtBooks 1.0: Flask, PyMySQL and MariaDB. Amounts and
+The ledger core and HTTP API for Lt-AI-Books 1.1: Flask, PyMySQL and MariaDB. Amounts and
 report figures come from deterministic code. The AI features only extract data, suggest
 classifications and write commentary.
 

@@ -1,9 +1,25 @@
 # Changelog
 
-## Maintenance update, 2026-11-21 (version stays 1.0.0)
+## 1.1 — Rebranding & bug fix, 2026-11-24
+
+- Product renamed to **Lt-AI-Books** (version `1.0.x` → `1.1`) on every user-visible
+  surface: page titles, login mark, footer, PDFs, outgoing emails, financial analysis
+  reports and release docs. Technical identifiers (PHP constants, the `ltbooks-api`
+  service name, database tables, session cookie) are intentionally unchanged, so no
+  migration is needed.
+- Fixed `POST /agents/precheck` (`workflow=post_invoice`) returning HTTP 500: the
+  invoice lookup used a non-existent `customer_name` column; corrected to
+  `supplier_name`. The AI gatekeeper that reviews a sales invoice before posting works
+  again.
+- Verified end-to-end: purchase → goods receipt → bill → approve → post → pay →
+  settle; sales → dispatch → invoice → approve → post → receipt; bank transfer and
+  bank statement posting; manual journal + reversal. All journal entries and account
+  balance movements are correct; posted debits equal posted credits globally.
+
+## Maintenance update, 2026-11-21 (version stays 1.1)
 
 This is an online maintenance update. It does not change the data model and needs no
-migration. Packages keep the 1.0.0 name.
+migration. Packages keep the 1.1 name.
 
 ### Languages (Simplified Chinese, Traditional Chinese, English)
 
@@ -116,7 +132,7 @@ migration. Packages keep the 1.0.0 name.
   fixed text was mixed into another language; remaining Chinese characters are business
   text or legal names that must be preserved.
 
-## Version 1.0.0, 2026-11-19
+## Version 1.1, 2026-11-19
 
 First official release.
 
@@ -146,7 +162,7 @@ First official release.
   falls back to deterministic text when a model is unavailable.
 - Attachment downloads validate the resolved path. SQL is fully parameterised. Writes
   require manual confirmation.
-- Removed old brand names and third-party service references. Product name is LtBooks.
+- Removed old brand names and third-party service references. Product name is Lt-AI-Books.
 - Source files carry copyright and SPDX identifiers. Released under MIT.
 - 71 unit and API regression cases passed. All three installers passed structure, hash,
   syntax and empty-database installation checks.

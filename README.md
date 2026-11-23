@@ -1,6 +1,6 @@
-# LtBooks
+# Lt-AI-Books
 
-LtBooks is an open-source accounting and financial reporting system for small and
+Lt-AI-Books is an open-source accounting and financial reporting system for small and
 medium businesses in Hong Kong. It keeps a double-entry general ledger, a chart of
 accounts, sales and purchase documents, bank statement imports and HKFRS financial
 statements in one self-hosted web application.
@@ -48,9 +48,9 @@ On a new Debian 12 or Ubuntu 22.04+ server with internet access, run the automat
 installer as root:
 
 ```bash
-sha256sum -c LtBooks-Ver1.0-auto-clean-20261123.tar.gz.sha256
-tar -xzf LtBooks-Ver1.0-auto-clean-20261123.tar.gz
-cd LtBooks-Ver1.0-auto-clean-20261123
+sha256sum -c Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz.sha256
+tar -xzf Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz
+cd Lt-AI-Books-Ver1.1-auto-clean-20261123
 sudo ./install.sh
 ```
 
@@ -64,9 +64,9 @@ For hosting panels and internal networks, use the manual package and `install-ma
 instead. Both packages are clean: an empty schema, one company record, 108 accounts and
 12 tax rates, with no business data.
 
-- Automatic install: `LtBooks-Ver1.0-auto-clean-20261123.tar.gz`
-- Manual install: `LtBooks-Ver1.0-manual-clean-20261123.zip`
-- Release page: https://github.com/mwliu616/ltbooks/releases/tag/v1.0.0
+- Automatic install: `Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz`
+- Manual install: `Lt-AI-Books-Ver1.1-manual-clean-20261123.zip`
+- Release page: https://github.com/mwliu616/ltbooks/releases/tag/v1.1
 
 ## Repository layout
 

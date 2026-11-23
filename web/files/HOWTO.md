@@ -1,4 +1,4 @@
-# LtBooks 1.0: Installation and User Guide
+# Lt-AI-Books 1.1: Installation and User Guide
 
 Copyright (c) 2026 LEDU TECH CO., LIMITED. Released under the MIT license.
 
@@ -12,9 +12,9 @@ for an optional certificate email address. Everything else is automatic.
 
 ```bash
 # Keep the archive and its .sha256 file in the same directory.
-sha256sum -c LtBooks-Ver1.0-auto-clean-20261123.tar.gz.sha256
-tar -xzf LtBooks-Ver1.0-auto-clean-20261123.tar.gz
-cd LtBooks-Ver1.0-auto-clean-20261123
+sha256sum -c Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz.sha256
+tar -xzf Lt-AI-Books-Ver1.1-auto-clean-20261123.tar.gz
+cd Lt-AI-Books-Ver1.1-auto-clean-20261123
 sudo ./install.sh
 ```
 
@@ -71,7 +71,7 @@ Common environment variables:
 | `LTBOOKS_DB_NAME` | `ltbooks` | Database name |
 | `LTBOOKS_DB_USER` | `ltbooks_app` | Database user |
 
-The installer stops if the target database already contains LtBooks tables. It does not
+The installer stops if the target database already contains Lt-AI-Books tables. It does not
 overwrite an existing ledger.
 
 ### 1.2 Manual package
@@ -111,8 +111,8 @@ php -r '$m=["curl","mbstring","xml","pdo_mysql"];foreach($m as $x){echo $x,": ",
 Deploy:
 
 ```bash
-unzip LtBooks-Ver1.0-manual-clean-20261123.zip
-cd LtBooks-Ver1.0-manual-clean-20261123
+unzip Lt-AI-Books-Ver1.1-manual-clean-20261123.zip
+cd Lt-AI-Books-Ver1.1-manual-clean-20261123
 ./install-manual.sh
 ```
 

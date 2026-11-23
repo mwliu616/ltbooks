@@ -1,6 +1,6 @@
-# LtBooks Front End (PHP Rendering Layer)
+# Lt-AI-Books Front End (PHP Rendering Layer)
 
-The browser side of LtBooks 1.0: PHP 8.1+ server-side rendering, login required, and a
+The browser side of Lt-AI-Books 1.1: PHP 8.1+ server-side rendering, login required, and a
 three-language interface (Simplified Chinese, Traditional Chinese and English). All data
 and business logic come from the Python API on the same machine. This directory does not
 connect to the database.

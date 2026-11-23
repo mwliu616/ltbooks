@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok()
         if ($desc === '') { continue; }
         $lines[] = ['description' => $desc,
                     'unit' => trim((string) ($row['unit'] ?? '')) ?: null,
+                    'accountCode' => trim((string) ($row['accountCode'] ?? '')) ?: null,
                     'quantity' => (string) ($row['quantity'] ?? '1'),
                     'unitPrice' => (string) ($row['unitPrice'] ?? '0'),
                     'taxRate' => (string) ($row['taxRate'] ?? '')];
@@ -98,17 +99,19 @@ $formLines = [];
 if ($formError && isset($_POST['line'])) {
     foreach ((array) $_POST['line'] as $ln) {
         $formLines[] = ['description' => (string) ($ln['description'] ?? ''), 'unit' => (string) ($ln['unit'] ?? ''),
+                        'accountCode' => (string) ($ln['accountCode'] ?? ''),
                         'quantity' => (string) ($ln['quantity'] ?? '1'), 'unitPrice' => (string) ($ln['unitPrice'] ?? '0'),
                         'taxRate' => (string) ($ln['taxRate'] ?? '')];
     }
 } elseif ($editing) {
     foreach ((array) ($editing['lines'] ?? []) as $ln) {
         $formLines[] = ['description' => (string) $ln['description'], 'unit' => (string) ($ln['unit'] ?? ''),
+                        'accountCode' => (string) ($ln['account_code'] ?? ''),
                         'quantity' => (string) $ln['quantity'], 'unitPrice' => (string) $ln['unit_price'],
                         'taxRate' => (string) ($ln['tax_rate'] ?? '')];
     }
 }
-if (!$formLines) { $formLines[] = ['description' => '', 'unit' => '', 'quantity' => '1', 'unitPrice' => '0', 'taxRate' => '']; }
+if (!$formLines) { $formLines[] = ['description' => '', 'unit' => '', 'accountCode' => '', 'quantity' => '1', 'unitPrice' => '0', 'taxRate' => '']; }
 
 [$page, $per] = pager_state('ledu_order_per', 25);
 $limit = $per === 0 ? 0 : $per;
@@ -124,6 +127,16 @@ $partyRes = $isSales ? api_get('/customers?limit=0') : api_get('/vendors?limit=0
 $partyList = $partyRes['ok'] ? ($partyRes['data'][$isSales ? 'customers' : 'vendors'] ?? []) : [];
 $partyNameKey = $isSales ? 'customer_name' : 'vendor_name';
 $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
+// 订单逐行指定科目：销售=收入科目，采购=费用科目；转发票/账单时按行带入。
+$lineAccounts = [];
+$acctCats = $isSales ? ['revenue'] : ['expense', 'cogs'];
+$acctR = api_get('/accounts/tree');
+foreach (($acctR['ok'] ? ($acctR['data']['accounts'] ?? []) : []) as $a) {
+    if (!empty($a['is_active']) && in_array((string) $a['category'], $acctCats, true)) {
+        $lineAccounts[] = $a;
+    }
+}
+$defaultAcct = $isSales ? '4100' : '6600';
 ?>
 <?php if (!$showNew): ?>
 <div class="card">
@@ -215,7 +228,7 @@ $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
       <a class="btn sm" href="?p=<?= e($pageKey) ?>">返回列表</a>
     </div>
   </div>
-  <form method="post" class="card-body" enctype="multipart/form-data">
+  <form method="post" class="card-body" enctype="multipart/form-data" id="orderForm">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="<?= $editing ? 'order_update' : 'order_create' ?>">
     <?php if ($editing): ?><input type="hidden" name="id" value="<?= (int) $editing['order_id'] ?>"><?php endif; ?>
@@ -278,6 +291,7 @@ $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
         <thead><tr>
           <th style="width:38px" class="num">#</th>
           <th>项目 / 描述</th>
+          <th style="width:150px"><?= e($isSales ? '收入科目' : '费用科目') ?></th>
           <th style="width:84px" class="num">数量</th>
           <th style="width:80px">单位</th>
           <th style="width:124px" class="num">单价</th>
@@ -290,6 +304,12 @@ $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
           <tr>
             <td class="o-seq mono hint"><?= $i + 1 ?></td>
             <td><input type="text" name="line[<?= $i ?>][description]" value="<?= e((string) $ln['description']) ?>" placeholder="<?= e(t('写清楚是什么')) ?>" style="width:100%"></td>
+            <?php $selAcc = (string) ($ln['accountCode'] ?: $defaultAcct); ?>
+            <td><select name="line[<?= $i ?>][accountCode]" style="width:100%">
+              <?php foreach ($lineAccounts as $a): ?>
+                <option value="<?= e((string) $a['account_code']) ?>"<?= $selAcc === (string) $a['account_code'] ? ' selected' : '' ?>><?= e((string) $a['account_code'] . ' ' . ($a['account_name'] ?? '')) ?></option>
+              <?php endforeach; ?>
+            </select></td>
             <td><input type="number" step="0.0001" min="0" name="line[<?= $i ?>][quantity]" value="<?= e((string) $ln['quantity']) ?>" class="o-qty" style="width:100%"></td>
             <td><input type="text" name="line[<?= $i ?>][unit]" value="<?= e((string) $ln['unit']) ?>" placeholder="<?= e(t('箱/件')) ?>" style="width:100%"></td>
             <td><input type="number" step="0.01" min="0" name="line[<?= $i ?>][unitPrice]" value="<?= e((string) $ln['unitPrice']) ?>" class="o-price" style="width:100%"></td>
@@ -307,6 +327,8 @@ $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
       </div>
     </div>
 
+    <div class="pc-box" id="aiPrecheck"></div>
+
     <div class="field" style="margin-top:14px"><label class="f" for="oNotes"><?= e(t('备注')) ?></label>
       <textarea id="oNotes" name="notes" rows="3" placeholder="<?= e(t('其他需要记录的信息')) ?>"><?= e((string) $value('notes', 'notes')) ?></textarea>
     </div>
@@ -319,6 +341,34 @@ $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
     </div>
   </form>
 </section>
+<script src="assets/precheck.js?v=<?= @filemtime(__DIR__ . '/../assets/precheck.js') ?>"></script>
+<script>
+(function () {
+  var f = document.getElementById('orderForm');
+  if (!f || !window.LeduPrecheck) return;
+  function v(name) { var el = f.elements[name]; return el ? el.value : ''; }
+  function gather() {
+    var lines = [];
+    f.querySelectorAll('#oLines tr').forEach(function (tr) {
+      var g = function (sel) { var e = tr.querySelector(sel); return e ? e.value : ''; };
+      lines.push({description: g('input[name*="[description]"]'),
+                  quantity: g('.o-qty'), unitPrice: g('.o-price'),
+                  taxRate: g('.o-tax'), accountCode: g('select[name*="[accountCode]"]')});
+    });
+    return {partyName: v('partyName'), orderDate: v('orderDate'),
+            currency: v('currency'), direction: <?= json_encode($dir) ?>, lines: lines};
+  }
+  window.LeduPrecheck.attach({
+    el: '#aiPrecheck', form: f, workflow: <?= json_encode($isSales ? 'sales_order' : 'purchase_order') ?>,
+    agentLabel: '单据分析', auto: true, collect: gather,
+    ready: function (p) {
+      return p.partyName && p.lines.some(function (l) {
+        return l.description && parseFloat(l.unitPrice) > 0;
+      });
+    }
+  });
+})();
+</script>
 <script>
 (function () {
   var body = document.getElementById('oLines'), add = document.getElementById('oAdd'), n = body.rows.length;
@@ -342,10 +392,13 @@ $partyCodeKey = $isSales ? 'customer_code' : 'vendor_code';
   body.querySelectorAll('tr').forEach(bind);
   add.addEventListener('click', function () {
     var tr = body.rows[0].cloneNode(true);
-    tr.querySelectorAll('input').forEach(function (el) {
+    tr.querySelectorAll('input,select').forEach(function (el) {
       el.name = el.name.replace(/line\[\d+\]/, 'line[' + n + ']');
+    });
+    tr.querySelectorAll('input').forEach(function (el) {
       el.value = el.classList.contains('o-qty') ? '1' : (el.classList.contains('o-price') ? '0' : '');
     });
+    tr.querySelectorAll('select').forEach(function (el) { el.value = <?= json_encode($defaultAcct) ?>; });
     body.appendChild(tr); bind(tr); n++;
     body.querySelectorAll('tr').forEach(function (r, i) { r.querySelector('.o-seq').textContent = i + 1; });
     calc();

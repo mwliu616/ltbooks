@@ -1,4 +1,4 @@
-# LtBooks 1.0 Clean Deployment Package
+# Lt-AI-Books 1.1 Clean Deployment Package
 
 Copyright (c) 2026 LEDU TECH CO., LIMITED. Released under the MIT license.
 
@@ -11,8 +11,8 @@ Two packages are available. Use the one that matches the server.
 
 | Package | File | Use when |
 | --- | --- | --- |
-| Automatic | `LtBooks-Ver1.0-auto-clean-*.tar.gz` | New Debian 12 or Ubuntu 22.04+ server with internet access. Enter a domain or IP and an optional certificate email; the rest is automatic |
-| Manual | `LtBooks-Ver1.0-manual-clean-*.zip` | Existing hosting panel, internal network, offline server, or when you manage every system package yourself |
+| Automatic | `Lt-AI-Books-Ver1.1-auto-clean-*.tar.gz` | New Debian 12 or Ubuntu 22.04+ server with internet access. Enter a domain or IP and an optional certificate email; the rest is automatic |
+| Manual | `Lt-AI-Books-Ver1.1-manual-clean-*.zip` | Existing hosting panel, internal network, offline server, or when you manage every system package yourself |
 
 ---
 
@@ -23,8 +23,8 @@ server IP. When a domain is used, it also asks for a certificate email address, 
 be left blank.
 
 ```bash
-tar -xzf LtBooks-Ver1.0-auto-clean-*.tar.gz
-cd LtBooks-Ver1.0-auto-clean-*
+tar -xzf Lt-AI-Books-Ver1.1-auto-clean-*.tar.gz
+cd Lt-AI-Books-Ver1.1-auto-clean-*
 sudo ./install.sh
 ```
 
@@ -74,7 +74,7 @@ Environment variables:
 | `LTBOOKS_DB_NAME` | `ltbooks` |
 | `LTBOOKS_DB_USER` | `ltbooks_app` |
 
-The installer stops if the target database already contains LtBooks tables. It does not
+The installer stops if the target database already contains Lt-AI-Books tables. It does not
 overwrite an existing ledger.
 
 ---
@@ -117,8 +117,8 @@ php -r '$m=["curl","mbstring","xml","pdo_mysql"];foreach($m as $x){echo $x,": ",
 ### 2.2 Deploy the application
 
 ```bash
-unzip LtBooks-Ver1.0-manual-clean-*.zip
-cd LtBooks-Ver1.0-manual-clean-*
+unzip Lt-AI-Books-Ver1.1-manual-clean-*.zip
+cd Lt-AI-Books-Ver1.1-manual-clean-*
 ./install-manual.sh
 ```
 
@@ -202,7 +202,7 @@ Each archive has a matching `.sha256` file. `MANIFEST.txt` lists a SHA-256 hash 
 file in the package.
 
 ```bash
-sha256sum -c LtBooks-Ver1.0-auto-clean-*.tar.gz.sha256
+sha256sum -c Lt-AI-Books-Ver1.1-auto-clean-*.tar.gz.sha256
 ```
 
 ## 6. Documentation
