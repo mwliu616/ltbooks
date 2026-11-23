@@ -295,6 +295,44 @@ def admin_create_user():
     return J({"userId": uid})
 
 
+@app.route("/admin/users/<int:uid>", methods=["PATCH"])
+def admin_update_user(uid):
+    if not is_admin():
+        raise PermissionError("仅管理员可编辑用户")
+    p = request.get_json(force=True) or {}
+    operator = request.headers.get("X-Ledu-User", "")
+    u = authcore.get_user_by_id(uid)
+    if not u:
+        raise ValueError("用户不存在")
+    authcore.update_user(uid,
+                         str(p.get("displayName", "")).strip(),
+                         str(p.get("role", u["role"])),
+                         str(p.get("status", u["status"])),
+                         operator=operator)
+    with transaction() as conn:
+        append_audit(conn, {"entity_id": entity_or_404()["entity_id"],
+                            "actor": operator or "admin", "actor_role": "admin",
+                            "action": "user.update", "object_type": "users",
+                            "object_id": str(uid),
+                            "detail": {"username": u["username"],
+                                       "role": p.get("role"), "status": p.get("status")}})
+    return J({"ok": True})
+
+
+@app.route("/admin/users/<int:uid>", methods=["DELETE"])
+def admin_delete_user(uid):
+    if not is_admin():
+        raise PermissionError("仅管理员可删除用户")
+    operator = request.headers.get("X-Ledu-User", "")
+    username = authcore.delete_user(uid, operator=operator)
+    with transaction() as conn:
+        append_audit(conn, {"entity_id": entity_or_404()["entity_id"],
+                            "actor": operator or "admin", "actor_role": "admin",
+                            "action": "user.delete", "object_type": "users",
+                            "object_id": str(uid), "detail": {"username": username}})
+    return J({"ok": True})
+
+
 @app.get("/overview")
 def overview():
     e = load_entity()

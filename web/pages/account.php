@@ -33,6 +33,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok()) {
         ]);
         $msg = $r['ok'] ? ('用户已创建：' . (string) ($_POST['username'] ?? '')) : null;
         $errMsg = $r['ok'] ? null : (string) $r['error'];
+    } elseif ($action === 'update_user' && ($user['role'] ?? '') === 'admin') {
+        $r = api_request('PATCH', '/admin/users/' . (int) ($_POST['user_id'] ?? 0), [
+            'displayName' => trim((string) ($_POST['displayName'] ?? '')),
+            'role' => (string) ($_POST['role'] ?? ''),
+            'status' => (string) ($_POST['status'] ?? 'active'),
+        ]);
+        $msg = $r['ok'] ? '用户已更新' : null;
+        $errMsg = $r['ok'] ? null : (string) $r['error'];
+    } elseif ($action === 'delete_user' && ($user['role'] ?? '') === 'admin') {
+        $r = api_request('DELETE', '/admin/users/' . (int) ($_POST['user_id'] ?? 0));
+        $msg = $r['ok'] ? '用户已删除' : null;
+        $errMsg = $r['ok'] ? null : (string) $r['error'];
     }
 }
 if ($msg) {
@@ -118,9 +130,12 @@ if ($errMsg) { echo errbox($errMsg); }
 
     $ur = api_get('/admin/users');
     $users = $ur['ok'] ? ($ur['data']['users'] ?? []) : [];
+    $editId = (int) ($_GET['edit'] ?? 0);
+    $editing = null;
+    foreach ($users as $x) { if ((int) $x['user_id'] === $editId) { $editing = $x; break; } }
     ob_start(); ?>
     <div class="table-wrap"><table>
-    <thead><tr><th>用户名</th><th>显示名</th><th>角色</th><th>状态</th><th>最近登录</th></tr></thead>
+    <thead><tr><th>用户名</th><th>显示名</th><th>角色</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
     <tbody>
     <?php foreach ($users as $x): ?>
       <tr><td><?= e((string) $x['username']) ?></td>
@@ -128,10 +143,64 @@ if ($errMsg) { echo errbox($errMsg); }
           <td><?= e(t(['admin' => '管理员', 'accountant' => '会计', 'auditor' => '审计只读',
                           'cashier' => '出纳'][(string) $x['role']] ?? (string) $x['role'])) ?></td>
           <td><?= status_pill((string) $x['status']) ?></td>
-          <td class="hint"><?= e((string) ($x['last_login_at'] ?? '—')) ?></td></tr>
+          <td class="hint"><?= e((string) ($x['last_login_at'] ?? '—')) ?></td>
+          <td><div style="display:flex;gap:6px">
+            <a class="btn sm" href="?p=account&amp;edit=<?= (int) $x['user_id'] ?>">编辑</a>
+            <?php if ((string) $x['username'] === 'admin'): ?>
+              <button class="btn sm" disabled title="内置 admin 账号不能删除">删除</button>
+            <?php else: ?>
+              <form method="post" style="display:inline"
+                    onsubmit="return confirm('确定删除该用户？删除后不可恢复。')">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="delete_user">
+                <input type="hidden" name="user_id" value="<?= (int) $x['user_id'] ?>">
+                <button class="btn sm danger">删除</button>
+              </form>
+            <?php endif; ?>
+          </div></td></tr>
     <?php endforeach; ?>
     </tbody></table></div>
     <?php echo card('用户列表', ob_get_clean());
+
+    if ($editing):
+        ob_start(); ?>
+        <form method="post">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="update_user">
+          <input type="hidden" name="user_id" value="<?= (int) $editing['user_id'] ?>">
+          <div class="grid form-grid">
+            <div class="field"><label class="f">用户名</label>
+              <input type="text" value="<?= e((string) $editing['username']) ?>" disabled></div>
+            <div class="field"><label class="f">显示名</label>
+              <input type="text" name="displayName" value="<?= e((string) $editing['display_name']) ?>"></div>
+            <div class="field"><label class="f">角色</label>
+              <?php if ((string) $editing['username'] === 'admin'): ?>
+                <input type="hidden" name="role" value="admin">
+              <?php endif; ?>
+              <select name="role"<?= (string) $editing['username'] === 'admin' ? ' disabled' : '' ?>>
+                <?php foreach (['accountant' => '会计', 'auditor' => '审计只读', 'admin' => '管理员'] as $__rv => $__rl): ?>
+                  <option value="<?= e($__rv) ?>"<?= (string) $editing['role'] === $__rv ? ' selected' : '' ?>><?= e(t($__rl)) ?></option>
+                <?php endforeach; ?>
+              </select></div>
+            <div class="field"><label class="f">状态</label>
+              <?php if ((string) $editing['username'] === 'admin'): ?>
+                <input type="hidden" name="status" value="active">
+              <?php endif; ?>
+              <select name="status"<?= (string) $editing['username'] === 'admin' ? ' disabled' : '' ?>>
+                <option value="active"<?= (string) $editing['status'] === 'active' ? ' selected' : '' ?>>启用</option>
+                <option value="disabled"<?= (string) $editing['status'] === 'disabled' ? ' selected' : '' ?>>停用</option>
+              </select></div>
+          </div>
+          <?php if ((string) $editing['username'] === 'admin'): ?>
+            <div class="hint">内置 admin 账号的角色和状态不可修改。</div>
+          <?php endif; ?>
+          <div class="toolbar form-actions">
+            <a class="btn" href="?p=account">取消</a>
+            <button class="btn primary">保存修改</button>
+          </div>
+        </form>
+        <?php echo card('编辑用户：' . (string) $editing['username'], ob_get_clean());
+    endif;
 
     ob_start(); ?>
     <form method="post">

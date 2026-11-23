@@ -541,7 +541,7 @@ if (isset($_GET['theme']) && array_key_exists((string) $_GET['theme'], theme_pre
   <div class="role-switch">
     <span><?= e($displayName) ?> · <?= e($role) ?></span>
     <a class="btn sm" href="?p=account">账号</a>
-    <form method="post" style="display:inline">
+    <form method="post" action="?p=logout" style="display:inline">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="logout">
       <button class="btn sm" type="submit">退出</button>

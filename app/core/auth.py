@@ -40,6 +40,10 @@ def get_user(username: str):
     return query_one("SELECT * FROM users WHERE username=%s", (username,))
 
 
+def get_user_by_id(user_id: int):
+    return query_one("SELECT * FROM users WHERE user_id=%s", (user_id,))
+
+
 def list_users():
     return query("""SELECT user_id, username, display_name, role, status, must_change,
                            last_login_at, created_at FROM users ORDER BY user_id""")
@@ -68,6 +72,52 @@ def change_password(user_id: int, new_password: str):
         with conn.cursor() as cur:
             cur.execute("""UPDATE users SET password_hash=%s, must_change=0
                             WHERE user_id=%s""", (hash_password(new_password), user_id))
+
+
+def update_user(user_id: int, display_name: str, role: str, status: str, operator: str = ""):
+    """修改显示名、角色、状态。内置 admin 必须保持管理员且启用。"""
+    if role not in ROLES:
+        raise ValueError(f"非法角色：{role}")
+    if status not in ("active", "disabled"):
+        raise ValueError("非法状态")
+    u = query_one("SELECT user_id, username, role FROM users WHERE user_id=%s", (user_id,))
+    if not u:
+        raise ValueError("用户不存在")
+    if u["username"] == "admin" and (role != "admin" or status != "active"):
+        raise ValueError("内置 admin 账号不能降级或停用")
+    if operator and u["username"] == operator and status != "active":
+        raise ValueError("不能停用当前登录账号")
+    if u["role"] == "admin" and role != "admin":
+        n = query_one("SELECT COUNT(*) AS n FROM users WHERE role='admin' AND status='active'")
+        if int(n["n"]) <= 1:
+            raise ValueError("系统至少保留一个管理员")
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE users SET display_name=%s, role=%s, status=%s
+                            WHERE user_id=%s""",
+                        (display_name or u["username"], role, status, user_id))
+            if status == "disabled":
+                cur.execute("DELETE FROM user_sessions WHERE user_id=%s", (user_id,))
+
+
+def delete_user(user_id: int, operator: str = ""):
+    """删除用户。内置 admin、当前登录账号、最后一个管理员都不允许删除。"""
+    u = query_one("SELECT user_id, username, role FROM users WHERE user_id=%s", (user_id,))
+    if not u:
+        raise ValueError("用户不存在")
+    if u["username"] == "admin":
+        raise ValueError("内置 admin 账号不能删除")
+    if operator and u["username"] == operator:
+        raise ValueError("不能删除当前登录账号")
+    if u["role"] == "admin":
+        n = query_one("SELECT COUNT(*) AS n FROM users WHERE role='admin' AND status='active'")
+        if int(n["n"]) <= 1:
+            raise ValueError("系统至少保留一个管理员")
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM user_sessions WHERE user_id=%s", (user_id,))
+            cur.execute("DELETE FROM users WHERE user_id=%s", (user_id,))
+    return u["username"]
 
 
 def login(username: str, password: str, ip: str = None, ua: str = None):
