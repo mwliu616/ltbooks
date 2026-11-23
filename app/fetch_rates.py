@@ -44,17 +44,12 @@ def fetch(rate_date=None):
         return json.load(r)
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--date", help="指定日期（默认取最新可用的上一个交易日）")
-    ap.add_argument("--actor", default="rate-bot")
-    args = ap.parse_args()
-
+def refresh(actor="rate-bot", rate_date=None):
+    """抓取最新 ECB 汇率并写入 fx_rates，供 cron 与手动刷新共用。"""
     try:
-        data = fetch(args.date)
+        data = fetch(rate_date)
     except Exception as e:
-        print(f"FETCH_FAIL {e}", file=sys.stderr)
-        return 2
+        raise RuntimeError(f"抓取汇率失败：{e}")
 
     api_date = str(data.get("date") or "")
     rates = data.get("rates") or {}
@@ -70,8 +65,7 @@ def main():
         rows.append((ccy, one_foreign_in_hkd))
 
     if not rows:
-        print("NO_RATES", file=sys.stderr)
-        return 3
+        raise RuntimeError("数据源没有返回可用汇率")
 
     ent = query_one("SELECT entity_id FROM entities WHERE status='active' LIMIT 1")
     entity_id = ent["entity_id"] if ent else 1
@@ -93,12 +87,27 @@ def main():
                             (api_date, BASE, ccy,
                              (Decimal(1) / hkd).quantize(Q, ROUND_HALF_UP) if hkd else Decimal(1)))
                 written += 2
-        append_audit(conn, {"entity_id": entity_id, "actor": args.actor,
+        append_audit(conn, {"entity_id": entity_id, "actor": actor,
                             "action": "fx_rate.autofetch", "object_type": "fx_rates",
                             "object_id": api_date,
                             "detail": {"source": "ECB/Frankfurter", "date": api_date,
                                        "pairs": written, "currencies": sorted(c for c, _ in rows)}})
-    print(f"OK date={api_date} pairs={written} currencies={len(rows)}")
+    return {"date": api_date, "pairs": written,
+            "currencies": sorted(c for c, _ in rows)}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--date", help="指定日期（默认取最新可用的上一个交易日）")
+    ap.add_argument("--actor", default="rate-bot")
+    args = ap.parse_args()
+
+    try:
+        out = refresh(args.actor, args.date)
+    except RuntimeError as e:
+        print(f"FAIL {e}", file=sys.stderr)
+        return 2
+    print(f"OK date={out['date']} pairs={out['pairs']} currencies={len(out['currencies'])}")
     return 0
 
 

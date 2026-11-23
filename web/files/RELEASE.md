@@ -64,6 +64,7 @@ The automatic installer asks for a Let's Encrypt certificate email after the dom
 | Currencies | The FX rate form can add a currency that is not listed yet by choosing **Other currency** and entering its three-letter code. Once a rate exists the currency appears in every currency selector |
 | Bank accounts | **New bank account** lets you pick an existing 112x bank account; when none is picked the system reuses a free one for the currency or creates it. The list shows each account's GL account, and the first account becomes primary receiving |
 | AI customer intake | On the customer form, upload a business card / registration certificate or paste the text; the AI agent decides company vs individual and fills the empty fields (name, contact, phone, email, address, BR number…) for review before saving |
+| FX maintenance | The rates page has a **Refresh now** button that runs the same ECB/Frankfurter fetch as the daily 09:00 job and reports the date, pair count and currencies written |
 
 ## 1. Artifacts
 

@@ -22,6 +22,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
     $msg = $r['ok'] ? '汇率已保存' : null;
     $errMsg = $r['ok'] ? null : (string) $r['error'];
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'refresh_rates') {
+    $r = api_post('/fx/refresh', ['actor' => $displayName ?? 'system']);
+    if ($r['ok']) {
+        $d = $r['data'];
+        $msg = '已抓取 ' . (string) ($d['date'] ?? '') . ' 的汇率：' . (int) ($d['pairs'] ?? 0)
+             . ' 条，覆盖 ' . count($d['currencies'] ?? []) . ' 个币种';
+    } else {
+        $errMsg = (string) $r['error'];
+    }
+}
 if ($msg) { echo '<div class="banner PASS"><span class="banner-icon">✓</span><div class="banner-body"><div class="banner-title">操作成功</div><div class="banner-reason">' . e($msg) . '</div></div></div>'; }
 if ($errMsg) { echo errbox($errMsg); }
 
@@ -56,6 +66,11 @@ if ($page === 1) {
 $rateMeta = '<span class="status-chip is-ok" title="数据源 Frankfurter（ECB 参考汇率），每天 09:00 自动抓取">'
           . '<b>✓</b> 自动更新 09:00'
           . ($lastEcb ? '<span class="status-chip-num">· ' . e(t('上次')) . ' ' . e($lastEcb) . '</span>' : '') . '</span>';
+if ($role !== 'auditor') {
+    $rateMeta .= '<form method="post" style="display:inline-block;margin-left:8px">' . csrf_field()
+              . '<input type="hidden" name="action" value="refresh_rates">'
+              . '<button class="btn">立即更新</button></form>';
+}
 echo card('汇率', ob_get_clean(), $rateMeta . pager_html($page, $per, $total, ['p' => 'rates']), false);
 
 if ($role !== 'auditor'):

@@ -4348,6 +4348,19 @@ def rates_list():
               "total": total, "limit": limit, "offset": offset})
 
 
+@app.post("/fx/refresh")
+def fx_refresh():
+    """手动立即抓取一次 ECB 汇率（与每天 09:00 定时任务同一逻辑）。"""
+    require_writer()
+    p = request.get_json(force=True) or {}
+    from fetch_rates import refresh
+    try:
+        out = refresh(actor=str(p.get("actor") or "manual"))
+    except RuntimeError as ex:
+        return J({"error": "fetch_error", "message": str(ex)}, 502)
+    return J({"ok": True, **out})
+
+
 @app.post("/fx/rates")
 def rate_add():
     require_writer()
