@@ -9,7 +9,7 @@ $msg = null; $errMsg = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'create_account') {
     $ccy = strtoupper(trim((string) ($_POST['currency'] ?? 'HKD')));
-    if ($ccy === '__new__') {
+    if ($ccy === '__NEW__') {
         $ccy = strtoupper(trim((string) ($_POST['newCurrency'] ?? '')));
     }
     $r = api_post('/bank-accounts', [
