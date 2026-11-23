@@ -92,6 +92,28 @@ $kv = function (string $label, $value, string $fmt = 'text') {
   </div>
 </div>
 
+<?php if (!$isCust && (!empty($d['bank_name']) || !empty($d['bank_account_no'])
+        || !empty($d['bank_account_name']) || !empty($d['bank_swift']) || !empty($d['bank_address']))): ?>
+<div class="card">
+  <div class="card-head"><h2 class="card-title"><?= e(t('银行信息')) ?></h2>
+    <div class="hint"><?= e(t('付款用')) ?></div></div>
+  <div class="card-body">
+    <div class="kvg">
+      <?= $kv('开户银行', $d['bank_name'] ?? '') ?>
+      <?= $kv('账户名称', $d['bank_account_name'] ?? '') ?>
+      <?= $kv('银行账号', $d['bank_account_no'] ?? '') ?>
+      <?= $kv('SWIFT / BIC', $d['bank_swift'] ?? '') ?>
+    </div>
+    <?php if (!empty($d['bank_address'])): ?>
+      <div class="kvg" style="margin-top:14px">
+        <div class="kvg-item kvg-wide"><div class="kvg-k"><?= e(t('银行地址')) ?></div>
+          <div class="kvg-v"><?= e((string) $d['bank_address']) ?></div></div>
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
+<?php endif; ?>
+
 <div class="card">
   <div class="card-head">
     <h2 class="card-title"><?= e($isCust ? t('开给这个客户的发票') : t('这个供应商的账单')) ?></h2>

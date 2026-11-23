@@ -4274,13 +4274,21 @@ def vendors_save():
                                country=%s,
                                website=%s,
                                tax_id=%s,
+                               bank_name=%s,
+                               bank_account_name=%s,
+                               bank_account_no=%s,
+                               bank_swift=%s,
+                               bank_address=%s,
                                notes=%s
                                WHERE vendor_id=%s AND entity_id=%s""",
                             (p.get("vendorCode"), p.get("vendorName"),
                              p.get("defaultCurrency", "HKD"), int(p.get("paymentTermsDays", 30)),
                              1 if p.get("isRelatedParty") else 0, p.get("email"),
                              p.get("status", "active"),
-                             p.get("contactName"), p.get("contactTitle"), p.get("phone"), p.get("mobile"), p.get("fax"), p.get("address"), p.get("district"), p.get("country"), p.get("website"), p.get("taxId"), p.get("notes"), int(p["vendorId"]), e["entity_id"]))
+                             p.get("contactName"), p.get("contactTitle"), p.get("phone"), p.get("mobile"), p.get("fax"), p.get("address"), p.get("district"), p.get("country"), p.get("website"), p.get("taxId"),
+                             p.get("bankName"), p.get("bankAccountName"), p.get("bankAccountNo"),
+                             p.get("bankSwift"), p.get("bankAddress"),
+                             p.get("notes"), int(p["vendorId"]), e["entity_id"]))
                 vid = int(p["vendorId"])
             else:
                 code = (p.get("vendorCode") or "").strip() \
@@ -4301,14 +4309,23 @@ def vendors_save():
                      country,
                      website,
                      tax_id,
+                     bank_name,
+                     bank_account_name,
+                     bank_account_no,
+                     bank_swift,
+                     bank_address,
                      notes)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,
-                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                     %s, %s, %s, %s, %s, %s)""",
                             (e["entity_id"], code, name,
                              p.get("defaultCurrency", "HKD"), int(p.get("paymentTermsDays", 30)),
                              1 if p.get("isRelatedParty") else 0, p.get("email"),
                              p.get("status", "active"),
-                             p.get("contactName"), p.get("contactTitle"), p.get("phone"), p.get("mobile"), p.get("fax"), p.get("address"), p.get("district"), p.get("country"), p.get("website"), p.get("taxId"), p.get("notes")))
+                             p.get("contactName"), p.get("contactTitle"), p.get("phone"), p.get("mobile"), p.get("fax"), p.get("address"), p.get("district"), p.get("country"), p.get("website"), p.get("taxId"),
+                             p.get("bankName"), p.get("bankAccountName"), p.get("bankAccountNo"),
+                             p.get("bankSwift"), p.get("bankAddress"),
+                             p.get("notes")))
                 vid = cur.lastrowid
             append_audit(conn, {"entity_id": e["entity_id"], "actor": p.get("actor", "system"),
                                 "action": "vendor.save", "object_type": "vendors",

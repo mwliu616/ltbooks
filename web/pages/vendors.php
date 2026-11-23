@@ -26,6 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
         'country'      => trim((string) ($_POST['country'] ?? '')) ?: null,
         'website'      => trim((string) ($_POST['website'] ?? '')) ?: null,
         'taxId'        => trim((string) ($_POST['taxId'] ?? '')) ?: null,
+        // 付款用的银行资料，可空
+        'bankName'        => trim((string) ($_POST['bankName'] ?? '')) ?: null,
+        'bankAccountName' => trim((string) ($_POST['bankAccountName'] ?? '')) ?: null,
+        'bankAccountNo'   => trim((string) ($_POST['bankAccountNo'] ?? '')) ?: null,
+        'bankSwift'       => trim((string) ($_POST['bankSwift'] ?? '')) ?: null,
+        'bankAddress'     => trim((string) ($_POST['bankAddress'] ?? '')) ?: null,
         'notes'        => trim((string) ($_POST['notes'] ?? '')) ?: null,
         'actor' => $displayName ?? 'system',
     ]);
@@ -125,6 +131,20 @@ ob_start(); ?>
     <div class="field"><label class="f"><?= e(t('地区 / 城市')) ?></label><input type="text" name="district" value="<?= e((string) ($E['district'] ?? '')) ?>" placeholder="<?= e(t('例：中环')) ?>"></div>
     <div class="field"><label class="f"><?= e(t('国家 / 地区')) ?></label><input type="text" name="country" placeholder="<?= e(t('例：香港')) ?>" value="<?= e((string) ($E['country'] ?? '香港')) ?>"></div>
     <div class="field"><label class="f"><?= e(t('网站')) ?></label><input type="text" name="website" value="<?= e((string) ($E['website'] ?? '')) ?>" placeholder="https://"></div>
+  </div>
+
+  <div class="form-section-title"><?= e(t('银行信息（付款用，可留空）')) ?></div>
+  <div class="grid form-grid">
+    <div class="field"><label class="f"><?= e(t('开户银行')) ?></label>
+      <input type="text" name="bankName" value="<?= e((string) ($E['bank_name'] ?? '')) ?>" placeholder="<?= e(t('例：汇丰银行 香港总行')) ?>"></div>
+    <div class="field"><label class="f"><?= e(t('账户名称（户名）')) ?></label>
+      <input type="text" name="bankAccountName" value="<?= e((string) ($E['bank_account_name'] ?? '')) ?>" placeholder="<?= e(t('例：ABC Trading Limited')) ?>"></div>
+    <div class="field"><label class="f"><?= e(t('银行账号')) ?></label>
+      <input type="text" name="bankAccountNo" value="<?= e((string) ($E['bank_account_no'] ?? '')) ?>" placeholder="123-456789-001" autocomplete="off"></div>
+    <div class="field"><label class="f"><?= e(t('SWIFT / BIC')) ?></label>
+      <input type="text" name="bankSwift" value="<?= e((string) ($E['bank_swift'] ?? '')) ?>" placeholder="HSBCHKHHHKH" autocomplete="off"></div>
+    <div class="field span-full"><label class="f"><?= e(t('银行地址')) ?></label>
+      <input type="text" name="bankAddress" value="<?= e((string) ($E['bank_address'] ?? '')) ?>" placeholder="<?= e(t('例：1 Queen\'s Road Central, Hong Kong')) ?>"></div>
   </div>
 
   <div class="field" style="margin-top:14px"><label class="f"><?= e(t('备注')) ?></label>
