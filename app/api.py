@@ -2136,6 +2136,33 @@ def journal():
                       AND f.doc_type='journal' AND f.doc_id=journal_entries.entry_id) AS file_count
              FROM journal_entries WHERE {where} ORDER BY entry_id DESC LIMIT %s OFFSET %s""",
         tuple(args + [limit, offset]))
+    # 列表的「金额」：收入为正、支出为负。
+    # 先看损益类科目（收入 - 费用/成本），没有损益行再看银行现金净流向；
+    # 两者都没有（如科目重分类）则为 0。
+    flows = {}
+    ids = [int(r["entry_id"]) for r in rows]
+    if ids:
+        marks = ",".join(["%s"] * len(ids))
+        for l in query(
+            f"""SELECT l.entry_id, l.debit, l.credit, a.category, a.fs_line_item
+                  FROM journal_lines l
+                  LEFT JOIN accounts a
+                    ON a.entity_id=%s AND a.account_code=l.account_code
+                 WHERE l.entry_id IN ({marks})""",
+            tuple([e["entity_id"]] + ids)):
+            f = flows.setdefault(int(l["entry_id"]), {"pl": 0.0, "cash": 0.0, "has_pl": False})
+            dr = float(dec(l["debit"]))
+            cr = float(dec(l["credit"]))
+            cat = str(l.get("category") or "")
+            if cat == "revenue":
+                f["pl"] += cr - dr
+                f["has_pl"] = True
+            elif cat in ("expense", "cogs"):
+                f["pl"] -= dr - cr
+                f["has_pl"] = True
+            if str(l.get("fs_line_item") or "") in ("CASH", "CASH_EQUIVALENTS"):
+                f["cash"] += dr - cr
+
     out = []
     for r in rows:
         d = dict(r)
@@ -2143,6 +2170,14 @@ def journal():
         d["total_debit"] = float(dec(d["total_debit"]))
         d["total_credit"] = float(dec(d["total_credit"]))
         d["file_count"] = int(d.get("file_count") or 0)
+        f = flows.get(int(d["entry_id"]))
+        if f is None:
+            net = 0.0
+        elif f["has_pl"]:
+            net = f["pl"]
+        else:
+            net = f["cash"]
+        d["net_amount"] = round(net, 2)
         out.append(d)
     return J({"entries": out, "total": total, "limit": limit, "offset": offset})
 

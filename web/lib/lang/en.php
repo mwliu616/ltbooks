@@ -3679,4 +3679,6 @@ return [
     '暖白账页与赤陶主色，辅以橄榄绿；适合审阅凭证与管理层报表' => 'Warm-white ledger pages with terracotta accents and olive green; suitable for reviewing vouchers and management reports',
     '中性石墨灰与高亮正文，蓝色操作聚焦；底色不再压到纯黑，长时间阅读更稳' => 'Neutral graphite grey with high-contrast body text and blue focus states; the background is not pure black, making extended reading more comfortable',
     '靛蓝底与柔和紫光点缀，和石墨灰明确区分；适合夜间结账与复核' => 'An indigo background with soft violet accents, clearly distinct from graphite grey; suitable for night-time closing and review',
+    '收入合计' => 'Total income',
+    '支出合计' => 'Total expenses',
 ];

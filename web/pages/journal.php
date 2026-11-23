@@ -29,13 +29,17 @@ usort($rows, function (array $a, array $b): int {
     $pb = (string) ($b['period'] ?? '');
     return $pa === $pb ? (int) $b['entry_id'] <=> (int) $a['entry_id'] : strcmp($pb, $pa);
 });
-// 分组小计只统计当前页，避免误导为全期间合计
+// 分组小计只统计当前页，避免误导为全期间合计；金额按收入为正、支出为负
 $periodAgg = [];
 foreach ($rows as $x) {
     $p = (string) ($x['period'] ?? '') ?: '—';
+    $net = (float) ($x['net_amount'] ?? 0);
     $periodAgg[$p]['n'] = ($periodAgg[$p]['n'] ?? 0) + 1;
-    $periodAgg[$p]['d'] = ($periodAgg[$p]['d'] ?? 0) + (float) $x['total_debit'];
-    $periodAgg[$p]['c'] = ($periodAgg[$p]['c'] ?? 0) + (float) $x['total_credit'];
+    if ($net >= 0) {
+        $periodAgg[$p]['inc'] = ($periodAgg[$p]['inc'] ?? 0) + $net;
+    } else {
+        $periodAgg[$p]['exp'] = ($periodAgg[$p]['exp'] ?? 0) + $net;
+    }
 }
 $draftCnt = count(array_filter($rows, fn($x) => ($x['status'] ?? '') === 'draft'));
 
@@ -67,17 +71,17 @@ ob_start(); ?>
 <div class="table-wrap jr-table"><table>
 <thead><tr><th style="width:110px"><?= e(t('分录号')) ?></th><th style="width:100px"><?= e(t('日期')) ?></th>
 <th style="width:90px"><?= e(t('来源')) ?></th><th><?= e(t('摘要')) ?></th>
-<th class="num" style="width:120px"><?= e(t('借方')) ?></th><th class="num" style="width:120px"><?= e(t('贷方')) ?></th>
+<th class="num" style="width:140px"><?= e(t('金额')) ?></th>
 <th style="width:90px"><?= e(t('状态')) ?></th><th class="jr-actions-h" style="width:240px"><?= e(t('操作')) ?></th></tr></thead>
 <tbody>
 <?php $lastPeriod = null; ?>
 <?php foreach ($rows as $x): ?>
   <?php $perKey = (string) ($x['period'] ?? '') ?: '—'; ?>
   <?php if ($perKey !== $lastPeriod): $agg = $periodAgg[$perKey]; ?>
-  <tr class="jr-group"><td colspan="8">
+  <tr class="jr-group"><td colspan="7">
     <?= e($perKey) ?><span class="jr-group-count"><?= (int) $agg['n'] ?> ·
-      <?= e(t('借方合计')) ?> <?= money($agg['d']) ?> ·
-      <?= e(t('贷方合计')) ?> <?= money($agg['c']) ?></span>
+      <?= e(t('收入合计')) ?> <?= money($agg['inc'] ?? 0) ?> ·
+      <?= e(t('支出合计')) ?> <?= money($agg['exp'] ?? 0) ?></span>
   </td></tr>
   <?php $lastPeriod = $perKey; endif; ?>
 <tr>
@@ -85,8 +89,7 @@ ob_start(); ?>
   <td class="nowrap"><?= e($x['entry_date']) ?></td>
   <td><?= e(source_label((string) $x['source_type'])) ?></td>
   <td><?= e((string) ($x['description'] ?: '—')) ?></td>
-  <td class="num"><?= money($x['total_debit']) ?></td>
-  <td class="num"><?= money($x['total_credit']) ?></td>
+  <td class="num mono"><?= money($x['net_amount'] ?? 0) ?></td>
   <td><?= status_pill((string) $x['status']) ?></td>
   <td class="jr-actions">
     <a class="btn sm" href="?p=journal-view&amp;id=<?= (int) $x['entry_id'] ?>"><?= e(t('明细')) ?></a>
