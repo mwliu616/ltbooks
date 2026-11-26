@@ -41,6 +41,7 @@ body.auth-page::after {            /* 极淡同心圆，唯一装饰 */
              display: flex; align-items: center; gap: 12px; }
 .auth-mark img { width: 38px; height: 38px; object-fit: contain; background: #fff;
                  padding: 4px; border-radius: 9px; }
+.auth-mark img.is-custom { background: transparent; padding: 0; border-radius: 0; }
 .auth-mark .pn { font-size:var(--f-md); letter-spacing: .02em; }
 .auth-mark .pv { font-size:var(--f-2xs); color: rgba(255,255,255,.45); letter-spacing: .2em;
                  text-transform: uppercase; margin-top: 2px; }
@@ -108,7 +109,7 @@ body.auth-page::after {            /* 极淡同心圆，唯一装饰 */
 <body class="auth-page">
 
   <div class="auth-mark">
-    <img src="<?= e(company_logo(192)) ?>?v=<?= (int) @filemtime(__DIR__ . '/../' . company_logo(192)) ?>" alt="LEDU" width="38" height="38">
+    <img class="<?= file_exists(__DIR__ . '/../assets/logo-custom-192.png') ? 'is-custom' : '' ?>" src="<?= e(company_logo(192)) ?>?v=<?= (int) @filemtime(__DIR__ . '/../' . company_logo(192)) ?>" alt="LEDU" width="38" height="38">
     <div>
       <div class="pn">Lt-AI-Books</div>
       <div class="pv">Ver 1.1</div>
