@@ -517,7 +517,7 @@ if (isset($_GET['theme']) && array_key_exists((string) $_GET['theme'], theme_pre
     </svg>
   </button>
   <a class="brand" href="?p=today" title="Lt-AI-Books Ver 1.1" aria-label="Lt-AI-Books Ver 1.1">
-    <img class="brand-logo" src="<?= e(company_logo(64)) ?>?v=<?= (int) @filemtime(__DIR__ . '/' . company_logo(64)) ?>" alt="LEDU" width="34" height="34">
+    <img class="brand-logo<?= file_exists(__DIR__ . '/assets/logo-custom-64.png') ? ' is-custom' : '' ?>" src="<?= e(company_logo(64)) ?>?v=<?= (int) @filemtime(__DIR__ . '/' . company_logo(64)) ?>" alt="LEDU" width="34" height="34">
     <span class="brand-text">
       <span class="brand-main">Lt<span>-AI-Books</span><small>1.1</small></span>
       <span class="brand-co"><?= e($companyName) ?></span>
