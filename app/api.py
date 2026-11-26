@@ -4278,6 +4278,48 @@ def customer_detail(customer_id):
     return J(d)
 
 
+@app.delete("/customers/<int:customer_id>")
+def customer_delete(customer_id):
+    """删除未被单据引用的客户；有引用时拒绝，避免破坏凭证追溯。"""
+    require_writer()
+    e = entity_or_404()
+    actor = request.args.get("actor", "system")
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT customer_code, customer_name FROM customers
+                            WHERE customer_id=%s AND entity_id=%s FOR UPDATE""",
+                        (customer_id, e["entity_id"]))
+            c = cur.fetchone()
+            if not c:
+                raise ValueError("客户不存在")
+            cur.execute("""SELECT
+                  (SELECT COUNT(*) FROM invoices
+                    WHERE entity_id=%s AND (customer_id=%s OR supplier_name=%s))
+                + (SELECT COUNT(*) FROM quotes
+                    WHERE entity_id=%s AND (customer_id=%s OR customer_name=%s))
+                + (SELECT COUNT(*) FROM payments_received
+                    WHERE entity_id=%s AND customer_id=%s)
+                + (SELECT COUNT(*) FROM orders
+                    WHERE entity_id=%s AND party_id=%s AND direction='sales')
+                + (SELECT COUNT(*) FROM credit_notes
+                    WHERE entity_id=%s AND party_name=%s) AS n""",
+                        (e["entity_id"], customer_id, c["customer_name"],
+                         e["entity_id"], customer_id, c["customer_name"],
+                         e["entity_id"], customer_id,
+                         e["entity_id"], customer_id,
+                         e["entity_id"], c["customer_name"]))
+            n = int(cur.fetchone()["n"])
+            if n:
+                raise ValueError(f"该客户已被 {n} 张单据引用，不能删除；如需停用请把状态改为 inactive")
+            cur.execute("DELETE FROM customers WHERE customer_id=%s AND entity_id=%s",
+                        (customer_id, e["entity_id"]))
+        append_audit(conn, {"entity_id": e["entity_id"], "actor": actor,
+                            "action": "customer.delete", "object_type": "customers",
+                            "object_id": str(customer_id),
+                            "detail": {"code": c["customer_code"], "name": c["customer_name"]}})
+    return J({"ok": True})
+
+
 @app.get("/vendors/<int:vendor_id>")
 def vendor_detail(vendor_id):
     e = entity_or_404()
@@ -4298,6 +4340,48 @@ def vendor_detail(vendor_id):
         x["outstanding"] = round(x["gross_original"] - x["settled_original"], 2)
     d["outstanding"] = round(sum(x["outstanding"] for x in d["documents"]), 2)
     return J(d)
+
+
+@app.delete("/vendors/<int:vendor_id>")
+def vendor_delete(vendor_id):
+    """删除未被单据引用的供应商；有引用时拒绝，避免破坏凭证追溯。"""
+    require_writer()
+    e = entity_or_404()
+    actor = request.args.get("actor", "system")
+    with transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT vendor_code, vendor_name FROM vendors
+                            WHERE vendor_id=%s AND entity_id=%s FOR UPDATE""",
+                        (vendor_id, e["entity_id"]))
+            v = cur.fetchone()
+            if not v:
+                raise ValueError("供应商不存在")
+            cur.execute("""SELECT
+                  (SELECT COUNT(*) FROM bills
+                    WHERE entity_id=%s AND (vendor_id=%s OR vendor_name=%s))
+                + (SELECT COUNT(*) FROM expenses
+                    WHERE entity_id=%s AND vendor_id=%s)
+                + (SELECT COUNT(*) FROM payments_made
+                    WHERE entity_id=%s AND vendor_id=%s)
+                + (SELECT COUNT(*) FROM orders
+                    WHERE entity_id=%s AND party_id=%s AND direction='purchase')
+                + (SELECT COUNT(*) FROM credit_notes
+                    WHERE entity_id=%s AND party_name=%s) AS n""",
+                        (e["entity_id"], vendor_id, v["vendor_name"],
+                         e["entity_id"], vendor_id,
+                         e["entity_id"], vendor_id,
+                         e["entity_id"], vendor_id,
+                         e["entity_id"], v["vendor_name"]))
+            n = int(cur.fetchone()["n"])
+            if n:
+                raise ValueError(f"该供应商已被 {n} 张单据引用，不能删除；如需停用请把状态改为 inactive")
+            cur.execute("DELETE FROM vendors WHERE vendor_id=%s AND entity_id=%s",
+                        (vendor_id, e["entity_id"]))
+        append_audit(conn, {"entity_id": e["entity_id"], "actor": actor,
+                            "action": "vendor.delete", "object_type": "vendors",
+                            "object_id": str(vendor_id),
+                            "detail": {"code": v["vendor_code"], "name": v["vendor_name"]}})
+    return J({"ok": True})
 
 
 @app.post("/vendors")

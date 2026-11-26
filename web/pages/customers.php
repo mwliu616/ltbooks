@@ -36,6 +36,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
     }
     $errMsg = (string) $r['error'];
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'delete_customer') {
+    $r = api_request('DELETE', '/customers/' . (int) ($_POST['customerId'] ?? 0)
+        . '?actor=' . urlencode((string) ($displayName ?? 'system')));
+    if ($r['ok']) {
+        header('Location: ?p=customers&msg=' . urlencode('客户已删除'));
+        exit;
+    }
+    $errMsg = (string) $r['error'];
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'extract_party') {
     $payload = ['text' => trim((string) ($_POST['partyText'] ?? ''))];
     if (!empty($_FILES['partyFile']['tmp_name']) && ($_FILES['partyFile']['error'] ?? 1) === UPLOAD_ERR_OK) {
@@ -122,7 +131,7 @@ ob_start();
 if (!$rows) { echo empty_state('暂无客户'); } else { ?>
 <div class="table-wrap"><table>
 <thead><tr><th>编码</th><th>名称</th><th>类型</th><th>联系人</th><th>电话</th><th>邮箱</th>
-<th>地区</th><th>币种</th><th class="num">账期</th><th>状态</th></tr></thead>
+<th>地区</th><th>币种</th><th class="num">账期</th><th>状态</th><th style="width:90px">操作</th></tr></thead>
 <tbody>
 <?php foreach ($rows as $x): ?>
 <tr><td class="mono"><a href="?p=party-view&type=customer&id=<?= (int) $x['customer_id'] ?>"><?= e((string) $x['customer_code']) ?></a></td>
@@ -136,7 +145,18 @@ if (!$rows) { echo empty_state('暂无客户'); } else { ?>
 <td class="hint"><?= e((string) ($x['district'] ?: ($x['country'] ?: '—'))) ?></td>
 <td><?= e((string) $x['default_currency']) ?></td>
 <td class="num"><?= (int) $x['payment_terms_days'] ?> <?= e(t('天')) ?></td>
-<td><?= status_pill((string) $x['status']) ?></td></tr>
+<td><?= status_pill((string) $x['status']) ?></td>
+<td><?php if ($role !== 'auditor'): ?>
+  <form method="post" style="display:inline">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="delete_customer">
+    <input type="hidden" name="customerId" value="<?= (int) $x['customer_id'] ?>">
+    <button type="submit" class="btn sm ghost"
+            data-confirm="确定删除该客户？"
+            data-confirm-note="仅未被单据引用的客户可删除；删除后不可恢复。"
+            data-confirm-ok="删除">删除</button>
+  </form>
+<?php endif; ?></td></tr>
 <?php endforeach; ?>
 </tbody></table></div>
 <?php }

@@ -41,6 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '
     }
     $errMsg = (string) $r['error'];
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_ok() && ($_POST['action'] ?? '') === 'delete_vendor') {
+    $r = api_request('DELETE', '/vendors/' . (int) ($_POST['vendorId'] ?? 0)
+        . '?actor=' . urlencode((string) ($displayName ?? 'system')));
+    if ($r['ok']) {
+        header('Location: ?p=vendors&msg=' . urlencode('供应商已删除'));
+        exit;
+    }
+    $errMsg = (string) $r['error'];
+}
 if ($msg) { echo '<div class="banner PASS"><span class="banner-icon">✓</span><div class="banner-body"><div class="banner-title">操作成功</div><div class="banner-reason">' . e($msg) . '</div></div></div>'; }
 if ($errMsg) { echo errbox($errMsg); }
 
@@ -68,7 +77,7 @@ ob_start();
 if (!$rows) { echo empty_state('暂无供应商'); } else { ?>
 <div class="table-wrap"><table>
 <thead><tr><th>编码</th><th>名称</th><th>联系人</th><th>电话</th><th>邮箱</th>
-<th>地区</th><th>币种</th><th class="num"><?= e(t('账期')) ?></th><th>状态</th></tr></thead>
+<th>地区</th><th>币种</th><th class="num"><?= e(t('账期')) ?></th><th>状态</th><th style="width:90px">操作</th></tr></thead>
 <tbody>
 <?php foreach ($rows as $x): ?>
 <tr><td class="mono"><a href="?p=party-view&type=vendor&id=<?= (int) $x['vendor_id'] ?>"><?= e((string) $x['vendor_code']) ?></a></td>
@@ -81,7 +90,18 @@ if (!$rows) { echo empty_state('暂无供应商'); } else { ?>
 <td class="hint"><?= e((string) (($x['district'] ?? '') ?: (($x['country'] ?? '') ?: '—'))) ?></td>
 <td><?= e((string) $x['default_currency']) ?></td>
 <td class="num"><?= (int) $x['payment_terms_days'] ?> <?= e(t('天')) ?></td>
-<td><?= status_pill((string) $x['status']) ?></td></tr>
+<td><?= status_pill((string) $x['status']) ?></td>
+<td><?php if ($role !== 'auditor'): ?>
+  <form method="post" style="display:inline">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="delete_vendor">
+    <input type="hidden" name="vendorId" value="<?= (int) $x['vendor_id'] ?>">
+    <button type="submit" class="btn sm ghost"
+            data-confirm="确定删除该供应商？"
+            data-confirm-note="仅未被单据引用的供应商可删除；删除后不可恢复。"
+            data-confirm-ok="删除">删除</button>
+  </form>
+<?php endif; ?></td></tr>
 <?php endforeach; ?>
 </tbody></table></div>
 <?php }
