@@ -228,7 +228,9 @@ def _logo_uri():
     """
     global _LOGO_CACHE
     from pathlib import Path
-    for cand in (WEB_ASSETS_DIR / "logo-custom-192.png",
+    for cand in (WEB_ASSETS_DIR / "logo-custom-512.png",
+                 WEB_ASSETS_DIR / "logo-512.png",
+                 WEB_ASSETS_DIR / "logo-custom-192.png",
                  WEB_ASSETS_DIR / "logo-192.png",
                  WEB_ASSETS_DIR / "logo-custom-64.png",
                  WEB_ASSETS_DIR / "logo-64.png"):
