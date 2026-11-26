@@ -9965,34 +9965,88 @@ def company_letterhead_pdf():
 LOGO_WEB_DIR = WEB_ASSETS_DIR
 
 
+def _strip_flat_background(im):
+    """把纯色背景（白底、黑底等）从四边泛洪抠成透明，返回 RGBA 图像。
+
+    - 本身带透明通道且确有透明区域的 PNG：原样保留
+    - 四边颜色不一致（照片、渐变）：不做处理
+    - 只抠与边框连通的部分，图形内部的同色区域不受影响
+    """
+    from PIL import Image, ImageChops, ImageDraw
+
+    rgba = im.convert("RGBA")
+    w, h = rgba.size
+    hist = rgba.split()[-1].histogram()
+    if sum(hist[:10]) > w * h * 0.02:      # 已有明显透明区域
+        return rgba
+
+    rgb = rgba.convert("RGB")
+    step_x, step_y = max(1, w // 160), max(1, h // 160)
+    edge = []
+    for x in range(0, w, step_x):
+        edge.append((x, 0))
+        edge.append((x, h - 1))
+    for y in range(0, h, step_y):
+        edge.append((0, y))
+        edge.append((w - 1, y))
+    colors = [rgb.getpixel(p) for p in edge]
+    # 以四边出现最多的颜色作为背景色；占比不足 55% 视为非纯色底（照片/渐变）
+    quant = {}
+    for c in colors:
+        k = (c[0] // 16, c[1] // 16, c[2] // 16)
+        quant[k] = quant.get(k, 0) + 1
+    dom_key, dom_cnt = max(quant.items(), key=lambda kv: kv[1])
+    if dom_cnt < len(colors) * 0.55:
+        return rgba
+    dom_members = [c for c in colors if (c[0] // 16, c[1] // 16, c[2] // 16) == dom_key]
+    bg = tuple(sorted(c[i] for c in dom_members)[len(dom_members) // 2] for i in range(3))
+
+    def _near(c):
+        return max(abs(c[0] - bg[0]), abs(c[1] - bg[1]), abs(c[2] - bg[2])) <= 30
+
+    # 缩到 1024 内做泛洪，兼顾速度与边缘精度
+    scale = min(1.0, 1024.0 / max(w, h))
+    small = rgb.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.BILINEAR)
+    sw, sh = small.size
+    marker = (255, 0, 255)
+    seeds = set()
+    sx, sy = max(1, sw // 120), max(1, sh // 120)
+    for px in range(0, sw, sx):
+        seeds.add((px, 0))
+        seeds.add((px, sh - 1))
+    for py in range(0, sh, sy):
+        seeds.add((0, py))
+        seeds.add((sw - 1, py))
+    for s in seeds:
+        if _near(small.getpixel(s)) and small.getpixel(s) != marker:
+            ImageDraw.floodfill(small, s, marker, thresh=36)
+
+    diff = ImageChops.difference(small, Image.new("RGB", small.size, marker))
+    r, g, b = diff.split()
+    mask = ImageChops.lighter(ImageChops.lighter(r, g), b)
+    mask = mask.point(lambda v: 0 if v == 0 else 255)
+    rgba.putalpha(mask.resize((w, h), Image.LANCZOS))
+    return rgba
+
+
 def _write_logo_variants(src: Path):
     """把上传的 Logo 转成网页与 PDF 用的多档尺寸。
 
-    统一转成带透明通道的 PNG：白底会被去掉，深色主题下不会出现白方块。
+    统一转成带透明通道的 PNG：纯色背景（白底/黑底）会从四周泛洪去掉，
+    保证放到浅色或深色页面上都不会出现方块。
     """
     from PIL import Image
     LOGO_WEB_DIR.mkdir(parents=True, exist_ok=True)
     im = Image.open(src)
     im.load()
-    if im.mode in ("RGBA", "LA"):
-        rgba = im.convert("RGBA")
-    else:
-        rgba = im.convert("RGBA")
-        # 纯白背景转透明
-        datas = []
-        for px in rgba.getdata():
-            if px[0] > 246 and px[1] > 246 and px[2] > 246:
-                datas.append((255, 255, 255, 0))
-            else:
-                datas.append(px)
-        rgba.putdata(datas)
+    rgba = _strip_flat_background(im)
 
     # 裁掉四周透明边，让图形占满画布
     bbox = rgba.split()[-1].getbbox()
     if bbox:
         rgba = rgba.crop(bbox)
 
-    side = max(rgba.size) + max(4, int(max(rgba.size) * 0.06))
+    side = max(rgba.size) + max(4, int(max(rgba.size) * 0.10))
     canvas = Image.new("RGBA", (side, side), (255, 255, 255, 0))
     canvas.paste(rgba, ((side - rgba.width) // 2, (side - rgba.height) // 2), rgba)
 
