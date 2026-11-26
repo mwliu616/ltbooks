@@ -196,7 +196,7 @@ ob_start(); ?>
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="delete_export">
         <input type="hidden" name="file" value="<?= e((string) $x['file']) ?>">
-        <button class="btn sm ghost">删除</button>
+        <button class="btn sm danger">删除</button>
       </form>
       <?php endif; ?>
     <?php else: ?>

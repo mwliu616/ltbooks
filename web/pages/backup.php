@@ -139,7 +139,7 @@ $renderBackupList = static function (array $items, string $emptyText) use ($form
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="delete_backup">
             <input type="hidden" name="name" value="<?= e((string) $row['name']) ?>">
-            <button class="btn sm backup-del" type="submit"><?= e(t('删除')) ?></button>
+            <button class="btn sm danger backup-del" type="submit"><?= e(t('删除')) ?></button>
           </form>
         </div>
       </td>

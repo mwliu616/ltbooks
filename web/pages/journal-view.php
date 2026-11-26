@@ -173,7 +173,7 @@ $__files = $__fr['ok'] ? ($__fr['data']['files'] ?? []) : [];
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="attach_delete">
             <input type="hidden" name="fileId" value="<?= (int) $f['file_id'] ?>">
-            <button class="btn sm"><?= e(t('删除')) ?></button>
+            <button class="btn sm danger"><?= e(t('删除')) ?></button>
           </form>
           <?php endif; ?>
         </td>

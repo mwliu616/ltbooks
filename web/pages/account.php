@@ -147,7 +147,7 @@ if ($errMsg) { echo errbox($errMsg); }
           <td><div style="display:flex;gap:6px">
             <a class="btn sm" href="?p=account&amp;edit=<?= (int) $x['user_id'] ?>">编辑</a>
             <?php if ((string) $x['username'] === 'admin'): ?>
-              <button class="btn sm" disabled title="内置 admin 账号不能删除">删除</button>
+              <button class="btn sm danger" disabled title="内置 admin 账号不能删除">删除</button>
             <?php else: ?>
               <form method="post" style="display:inline"
                     onsubmit="return confirm('确定删除该用户？删除后不可恢复。')">

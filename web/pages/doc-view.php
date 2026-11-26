@@ -267,7 +267,7 @@ if ($__dt !== null):
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="attach_delete">
             <input type="hidden" name="fileId" value="<?= (int) $f['file_id'] ?>">
-            <button class="btn sm">删除</button>
+            <button class="btn sm danger">删除</button>
           </form>
           <?php endif; ?>
         </td>

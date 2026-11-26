@@ -117,7 +117,7 @@ function render_node(string $code, array $byCode, array $children, int $depth, s
                 . 'onsubmit="return confirm(\'删除科目 ' . e($code) . '？此操作不可撤销。\')">' . csrf_field()
                 . '<input type="hidden" name="action" value="delete_account">'
                 . '<input type="hidden" name="code" value="' . e($code) . '">'
-                . '<button class="btn sm ghost">删除</button></form>';
+                . '<button class="btn sm danger">删除</button></form>';
         }
     }
     $h .= '</td></tr>';

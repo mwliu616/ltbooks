@@ -151,7 +151,7 @@ if (!$rows) { echo empty_state('暂无客户'); } else { ?>
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="delete_customer">
     <input type="hidden" name="customerId" value="<?= (int) $x['customer_id'] ?>">
-    <button type="submit" class="btn sm ghost"
+    <button type="submit" class="btn sm danger"
             data-confirm="确定删除该客户？"
             data-confirm-note="仅未被单据引用的客户可删除；删除后不可恢复。"
             data-confirm-ok="删除">删除</button>

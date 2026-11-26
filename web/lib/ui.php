@@ -187,7 +187,7 @@ function draft_delete_form(string $kind, int $id, string $back, string $label = 
         . '<input type="hidden" name="kind" value="' . e($kind) . '">'
         . '<input type="hidden" name="id" value="' . e((string) $id) . '">'
         . '<input type="hidden" name="back" value="' . e($back) . '">'
-        . '<button type="submit" class="btn sm"'
+        . '<button type="submit" class="btn sm danger"'
         . ' data-confirm="确定删除这张草稿单据？"'
         . ' data-confirm-note="删除后无法恢复；审计日志会保留本次操作。"'
         . ' data-confirm-ok="删除">' . e($label) . '</button></form>';

@@ -49,7 +49,7 @@ $fmt = function (array $items) use ($money) {
             $out .= '<form method="post" style="display:inline">' . csrf_field()
                   . '<input type="hidden" name="action" value="delete_tax_line">'
                   . '<input type="hidden" name="lineId" value="' . (int) $x['line_id'] . '">'
-                  . '<button class="btn sm ghost">删除</button></form>';
+                  . '<button class="btn sm danger">删除</button></form>';
         }
         $out .= '</td></tr>';
     }

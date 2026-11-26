@@ -186,7 +186,7 @@ if ($test !== null) {
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="delete_llm_provider">
               <input type="hidden" name="providerId" value="<?= (int) $p['providerId'] ?>">
-              <button class="btn small" type="submit"><?= e(t('删除')) ?></button>
+              <button class="btn sm danger" type="submit"><?= e(t('删除')) ?></button>
             </form>
           <?php else: ?>
             <span class="hint">—</span>

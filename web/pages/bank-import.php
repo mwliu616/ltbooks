@@ -229,7 +229,7 @@ $imports = $impR['ok'] ? ($impR['data']['imports'] ?? []) : [];
       <?php endif; ?>
       <?php if ($role !== 'auditor'): ?>
         <?php if ($matched > 0): ?>
-          <button class="btn sm" type="button" disabled title="<?= e(t('该月结单已有流水完成对账，需先在银行流水页撤销匹配')) ?>"><?= e(t('删除')) ?></button>
+          <button class="btn sm danger" type="button" disabled title="<?= e(t('该月结单已有流水完成对账，需先在银行流水页撤销匹配')) ?>"><?= e(t('删除')) ?></button>
         <?php else: ?>
           <form method="post" style="display:inline" onsubmit="return confirm('删除该月结单导入及其未对账流水？删除后可以重新上传同一文件。')">
             <?= csrf_field() ?>

@@ -96,7 +96,7 @@ if (!$rows) { echo empty_state('暂无供应商'); } else { ?>
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="delete_vendor">
     <input type="hidden" name="vendorId" value="<?= (int) $x['vendor_id'] ?>">
-    <button type="submit" class="btn sm ghost"
+    <button type="submit" class="btn sm danger"
             data-confirm="确定删除该供应商？"
             data-confirm-note="仅未被单据引用的供应商可删除；删除后不可恢复。"
             data-confirm-ok="删除">删除</button>

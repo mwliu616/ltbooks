@@ -101,7 +101,7 @@ $msg = (string) ($_GET['msg'] ?? '');
         <form method="post" class="inline-form">
           <?= csrf_field() ?><input type="hidden" name="action" value="rule_delete">
           <input type="hidden" name="id" value="<?= (int) $r['rule_id'] ?>">
-          <button class="btn sm" data-confirm="删除这条规则？" data-confirm-ok="删除">删除</button>
+          <button class="btn sm danger" data-confirm="删除这条规则？" data-confirm-ok="删除">删除</button>
         </form>
         <?php endif; ?>
       </td>
