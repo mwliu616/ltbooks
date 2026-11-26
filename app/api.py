@@ -9996,17 +9996,27 @@ def _write_logo_variants(src: Path):
     canvas = Image.new("RGBA", (side, side), (255, 255, 255, 0))
     canvas.paste(rgba, ((side - rgba.width) // 2, (side - rgba.height) // 2), rgba)
 
+    def _atomic_save(img, path: Path):
+        """先写同目录临时文件再原子替换：只要目录可写，不依赖旧文件属主/权限。"""
+        tmp = path.with_name(f".{path.name}.tmp")
+        img.save(tmp, format="PNG", optimize=True)
+        _os.replace(tmp, path)
+        try:
+            _os.chmod(path, 0o644)
+        except OSError:
+            pass
+
     out = {}
     for name, size in (("logo-custom-512.png", 512), ("logo-custom-192.png", 192),
                        ("logo-custom-64.png", 64)):
         p = LOGO_WEB_DIR / name
-        canvas.resize((size, size), Image.LANCZOS).save(p, optimize=True)
+        _atomic_save(canvas.resize((size, size), Image.LANCZOS), p)
         out[name] = str(p)
     # favicon 用白底，避免透明在浏览器标签上发灰
     fav = Image.new("RGB", (32, 32), (255, 255, 255))
     small = canvas.resize((32, 32), Image.LANCZOS)
     fav.paste(small, (0, 0), small)
-    fav.save(LOGO_WEB_DIR / "favicon.png", optimize=True)
+    _atomic_save(fav, LOGO_WEB_DIR / "favicon.png")
     return out
 
 
