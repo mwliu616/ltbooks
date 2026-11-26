@@ -654,7 +654,8 @@ if (isset($_GET['theme']) && array_key_exists((string) $_GET['theme'], theme_pre
     ?>
 
     <div class="footer-note">
-      <span>Copyright (c) 2026 Ledu Tech Co., Limited</span>
+      <span>Copyright (c) 2026 Ledu Tech Co., Limited</span><span class="hint">·</span>
+      <span class="hint"><?= e(t('数字来自账簿分录，AI 只做建议，记账由你确认')) ?></span>
     </div>
   </main>
 </div>
